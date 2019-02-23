@@ -7,7 +7,7 @@ Saml.
 
 Requires Net::SAML2. Unfortunately the version in CPAN has issues and does not currently 
 have an active maintainer so I will be adding the required instructions and patches to
-the Docker image at https://github.com/timlegge/docker-foswiki
+the Docker image at https://github.com/timlegge/docker-foswiki/tree/saml_support
 
 Net::SAML2 does have a fair number of active users and contributors on github
 
