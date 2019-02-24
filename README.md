@@ -25,4 +25,5 @@ Currently it works with Google's SAML apps configuration in Google Apps GSuite.
   1. Retest and include one of the GitHub Forks of Net::SAML2 that works correctly
      in the Docker Image above
   1. Look at adding support to NewUserPlugin to create WikiUser pages for new users
-
+  1. Review the Config.spec and ensure that the correct configurations are included
+  1. Add ability to specify nameid in the FoswikiConfig
