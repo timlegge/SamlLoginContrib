@@ -26,13 +26,13 @@ TemplateLogin manager.
 
 =cut
 
-    use LWP;
-    use LWP::UserAgent;
-    use Net::SAML2;
-    use Data::Dumper;
-    use Net::SAML2::XML::Sig;
-    use MIME::Base64 qw/ decode_base64 /;
-    use Crypt::OpenSSL::VerifyX509;
+use LWP;
+use LWP::UserAgent;
+use Net::SAML2;
+use Data::Dumper;
+use Net::SAML2::XML::Sig;
+use MIME::Base64 qw/ decode_base64 /;
+use Crypt::OpenSSL::VerifyX509;
 use strict;
 use warnings;
 use Foswiki;
@@ -60,7 +60,7 @@ sub new {
   undef $this->{sp_signing_cert};
   undef $this->{issuer};
   undef $this->{provider_name};
-  undef $this->{saml_request};
+  undef $this->{saml_request_id};
   return $this;
 }
 
@@ -81,7 +81,6 @@ sub loadSamlData {
     $this->{sp_sigining_cert} = $Foswiki::cfg{Saml}{sp_signing_cert};
     $this->{issuer} = $Foswiki::cfg{Saml}{issuer};
     $this->{provider_name} = $Foswiki::cfg{Saml}{provider_name};
-    #$this->{saml_request} = '';
 }
 
 sub getAndClearSessionValue {
@@ -113,7 +112,7 @@ in Foswiki::cfg.
 sub extractLoginname {
     my $this = shift;
     my $nameid = shift;
-    my $login_attr = $this->{'loginname_attr'};
+#    my $login_attr = $this->{'loginname_attr'};
     my $login = $nameid;
     # SMELL: This is here to make valid login names out of MS Azure AD subject values. Probably shouldn't be
     # done here, and this explicitly.
@@ -122,10 +121,9 @@ sub extractLoginname {
     return $login;
 }
 
-
 =pod
----++ ObjectMethod buildWikiName(displayname) => $wikiname
-Given a id token, builds a wikiname from it. Which claims are used to
+---++ ObjectMethod buildWikiName($attributes) => $wikiname
+Given the Saml attributes, builds a wikiname from it. Which attributes are used to
 build the wikiname ultimately depends on the Foswiki::cfg settings.
 If the wikiname that's built ends in ...Group or is contained in
 the list of forbidden WikiNames, WikiGuest (or rather, the configured
@@ -148,6 +146,7 @@ sub buildWikiName {
     if ($wikiname =~ m/Group$/) {
 	return $Foswiki::cfg{DefaultUserWikiName};
     }
+
     # Forbidden wikinames get mapped to WikiGuest too
     my @forbidden = split(/\s+,\s+/, $Foswiki::cfg{Saml}{ForbiddenWikinames});
     for my $bignono (@forbidden) {
@@ -200,7 +199,7 @@ sub matchWikiUser {
 }
 
 =pod
----++ ObjectMethod _isAlreadyMapped($session, $loginname, $email, $wikiname) => $boolean
+---++ ObjectMethod _isAlreadyMapped($session, $loginname, $wikiname) => $boolean
 This is an internal helper function which tries to determine whether a given loginname
 is already mapped to a wikiname or not.
 Unfortunately, there doesn't seem to be a "right" way to determine this while staying
@@ -229,7 +228,7 @@ sub _isAlreadyMapped {
 }
 
 =pod
----++ ObjectMethod mapUser($session, id_token) => $cuid
+---++ ObjectMethod mapUser($session, $attributes, $nameid) => $cuid
 This handles the mapping of a loginname as extracted from the SamlResponse 
 to a WikiName. We don't keep a mapping ourselves; we simply instruct
 the configured UserMapper to create one if it doesn't exist yet. If
@@ -287,7 +286,7 @@ sub mapUser {
 
 }
 =pod
----++ ObjectMethod redirectToProvider($provider, $query, $session)
+---++ ObjectMethod redirectToProvider($request_url, $query, $session)
 
 This is called directly by login() and is responsible for building
 the redirect url to the Saml provider. It generates the redirect
@@ -333,11 +332,15 @@ sub samlCallback {
     my $web = $this->getAndClearSessionValue('saml_web');
     my $topic = $this->getAndClearSessionValue('saml_topic');
 
+    # Don't show the SAMLReponse in the URL
+    $query->delete('SAMLResponse');
+
     $this->{cacert} = $Foswiki::cfg{Saml}{cacert};
 
-    #   : loadSamlData();
+    #  Create the POST binding objrct to get the details from the SALMRespones'
     my $post = Net::SAML2::Binding::POST->new(cacert => $this->{cacert});
 
+    # Send the SAMLResponse to the Binding for the POST
     my $ret = $post->handle_response(
         $saml_response
     );
@@ -352,11 +355,12 @@ sub samlCallback {
 	probably a better way to track the id/inresponseto
 =cut
 	my $issuer = $Foswiki::cfg{Saml}{issuer};
-	my $saml_request = $this->getAndClearSessionValue('saml_request');
-	my $valid = $assertion->valid($issuer, $saml_request);
+	my $saml_request_id = $this->getAndClearSessionValue('saml_request_id');
+	my $valid = $assertion->valid($issuer, $saml_request_id);
 
         if (!$valid) {
             print STDERR "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ERROR INVALID ^^^^^^^^^^^^^^^^^^^\n";
+	    Foswiki::Func::writeDebug("samlCallback: SAMLResponse \"InResponseTo\" does not match request ID") if $Foswiki::cfg{Saml}{Debug};
 	}
 	else {
     	    my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
@@ -437,31 +441,33 @@ sub login {
 
     my $saml_response = $query->param('SAMLResponse');
 
-
     if (defined $saml_response) {
         $this->samlCallback($saml_response, $query, $session);
     }
-
     elsif ((defined $provider) && ($provider eq 'native')) {
-	print STDERR "GOT Here\n";
+	# if we get a password or a request for the native login 
+	# provider, we redirect to the original TemplateLogin
+	$this->SUPER::login($query, $session);
+    }
+    elsif ((defined $provider) && ($provider ne 'native')) {
 	return;
     }
     else {
         my $idp = Net::SAML2::IdP->new_from_url(url => $metadata, cacert => $cacert);
-        #print Dumper($idp);
+	#print STDERR Dumper($idp);
 
-        # my $sso_url = $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect');
-
-        my $authnreq = Net::SAML2::Protocol::AuthnRequest->new(
+	# Important not to return as XML here as we need to track the id for later verification
+	my $authnreq = Net::SAML2::Protocol::AuthnRequest->new(
               issuer        => $issuer,
               destination   => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'), # The ssl_url destination for redirect
               provider_name => $provider_name,
               nameid_format => $idp->formats->{'emailAddress'},
-	      #)->as_xml;
         );
+
 	#print STDERR Dumper($authnreq);
 
-	Foswiki::Func::setSessionValue('saml_request', $authnreq->id);
+	# Store the request's id for later verification
+	Foswiki::Func::setSessionValue('saml_request_id', $authnreq->id);
 
         my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $sp_signing_key,
@@ -469,39 +475,13 @@ sub login {
               param => 'SAMLRequest',
               url => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'), # The ssl_url destination for redirect
         );
-        #print Dumper($redirect);
+        #print STDERR Dumper($redirect);
 
         my $url = $redirect->sign($authnreq->as_xml);
-        #    print Dumper($url);
+        #print Dumper($url);
     
         $this->redirectToProvider($url, $query, $session);
     }
-    #if ((defined $provider) && ($provider ne 'native')) {
-	#	return;
-	#    }
-=pod
-    my $provider = $query->param('provider');
-    my $state = $query->param('state');
-    my $code = $query->param('code');
-    my $password = $query->param('password');
-    my $error = $query->param('error');
-    
-    
-    elsif ($state && $code) {
-	$this->oauthCallback($code, $state, $query, $session);
-    }
-    elsif ($password || ((defined $provider) && ($provider eq 'native'))) {
-	# if we get a password or a request for the native login 
-	# provider, we redirect to the original TemplateLogin
-	$this->SUPER::login($query, $session);
-    }
-    elsif (defined($error)) {
-	$this->displayError($query, $session);
-    }
-    else {
-	$this->displayLoginTemplate($query, $session);
-    }
-=cut
 }
    
 
