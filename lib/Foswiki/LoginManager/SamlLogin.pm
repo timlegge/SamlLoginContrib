@@ -431,13 +431,13 @@ sub login {
 
     my ( $this, $query, $session ) = @_;
 
-    my $provider = $query->param('provider');
-    my $metadata            = 'http://foswiki.local/metadata.xml';  # Local Copy of Metadata from Identity Provider
-    my $cacert              = '/var/www/foswiki/saml/cacert.pem';   # The CA Cert for the Identity Providers Certificate
-    my $sp_signing_key      = '/var/www/foswiki/saml/sign.key';     # Service Provider Signing Key
-    my $sp_signing_cert     = '/var/www/foswiki/saml/sign.pem';     # Service Provider Signing Certificate
-    my $issuer              = 'https://foswiki.local';              #
-    my $provider_name       = 'Foswiki';                            # Bug in Net::SAML2 prevents this from being sent
+    my $provider             = $query->param('provider');
+    my $metadata	     = $Foswiki::cfg{Saml}{metadata};
+    my $cacert               = $Foswiki::cfg{Saml}{cacert};
+    my $sp_signing_key      = $Foswiki::cfg{Saml}{sp_sigining_key};
+    my $sp_signing_cert     = $Foswiki::cfg{Saml}{sp_signing_cert};
+    my $issuer               = $Foswiki::cfg{Saml}{issuer};
+    my $provider_name        = $Foswiki::cfg{Saml}{provider_name};
 
     my $saml_response = $query->param('SAMLResponse');
 
@@ -483,5 +483,3 @@ sub login {
         $this->redirectToProvider($url, $query, $session);
     }
 }
-   
-
