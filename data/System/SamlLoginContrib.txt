@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" comment="" date="1551043819" format="1.1" reprev="1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" comment="" date="155114061" format="1.1" reprev="1" version="1"}%
 %META:TOPICPARENT{name="Contribs"}%
 <!--
 One line description, required for extensions repository catalog.
@@ -11,6 +11,7 @@ One line description, required for extensions repository catalog.
 %TOC%
 
 ---++ Installation
+
 You do not need to install anything in the browser to use this extension. The following instructions are for the administrator who installs the extension on the server.
 
 Open configure, and open the "Extensions" section. Use "Find More Extensions" to get a list of available extensions. Select "Install".
@@ -23,6 +24,19 @@ Configuration of SAML Authentication for your Foswiki site requires a bit of wor
 
 Before you begin, make sure you have registered a new application/Service Provider (SP) (the terminology differs from provider to provider) with at the SAML Identity Provider you plan to use (if you don't know how, check out the reference links at the bottom of the page).
 
+Assumes that SamlLoginContrib is installed and enabled and you are logged in as admin to modify the config.
+
+| *Description* | *Setting* | *config setting* |
+| Change Login Manager | {LoginManager} | Foswiki::LoginManager::SamlLogin |
+| Change Password Manager | {PasswordManager} | None |
+| Enable Allow Login Names | {Register}{AllowLoginName} | Enabled |
+| Metadata | {Saml}{metadata} | http://localhost/metadata.xml |
+| Login Return Page | {Saml}{issuer} | https://foswiki.local/bin/login |
+| Signing Cert | {Saml}{sp_signing_cert} | /var/www/foswiki/saml/sign.pem |
+| Signing Key | {Saml}{sp_sigining_key} | /var/www/foswiki/saml/sign.key |
+| Identity Provider Root Certificate | {Saml}{cacert} | /var/www/foswiki/saml/cacert.pem |
+| Change WikiName Claims | {Saml}{WikiNameAttributes} | fname,lname |
+
 ---+++ Requirements
 
 *Important:* SAML2 is not compatible with the original SAML protocol.  However it is unlikely any Identity provider would be supporting SAML v1 at this point.
@@ -33,7 +47,7 @@ You need the following information before you can continue:
    1. The Root Certificate that the Identity provider will use to sign the SAMLResponse
    1. A public/private key pair for your Application (Service Provider).  This is used to sign the request to the Identity Provider
 
-The information for the SAML Authentication can be entered using Foswiki's web-based configuration tool ([[%SCRIPTURLPATH{"configure"}%]]) under the "Saml" tab which you'll find under "Security and Authentication" .
+The information for the SAML Authentication can be entered using Foswiki's web-based configuration tool ([[%SCRIPTURLPATH{"configure"}%][%SCRIPTURLPATH{"configure"}%]]) under the "Saml" tab which you'll find under "Security and Authentication" .
 
 ---+++ Saml Login and the Foswiki authentication infrastructure
 
@@ -48,7 +62,6 @@ Not having our own user mapper has it's downsides. For example, you can't link a
 ---+++ Logging in a the Local Admin
 
 To login as the local admin (to access configure) you need to tell the login process that you wish to use the native login:
-
 <verbatim>https://foswiki.local/bin/login?provider=native</verbatim>
 
 ---++ Supported SAML Identity Providers
@@ -62,8 +75,8 @@ SamlLoginContrib aims to eventually support any SAML2 standars compliant Identit
 ---++ Bugs, Shortcomings, Future work
 
    1. Currently, it does not support SAML's Logout everywhere functionality. Destroying the Foswiki session isn't enough, because someone with access to the browser can simply re-authenticate without needing to enter a password. This is a hard problem. SAML Identity Providers offer a logout endpoint, but this functionality hasn't been implemented yet.
-   1. We also don't currently support creating a New User Page like Ldap's NewUserPlugin but that is on the list. SAML can get at least the given name, family name and e-mail address in most cases.  Other SAML providers can provide additional information.  Groups can be provided but are not currently.
-   1. Future work should include support for Microsoft's SAML Federation service. 
+   1. We also don't currently support creating a New User Page like Ldap's NewUserPlugin but that is on the list. SAML can get at least the given name, family name and e-mail address in most cases. Other SAML providers can provide additional information. Groups can be provided but are not currently.
+   1. Future work should include support for Microsoft's SAML Federation service.
    1. The code is still new and needs thorough testing. Bug reports are welcome.
 
 ---++ Nice to know
@@ -72,11 +85,11 @@ SamlLoginContrib aims to eventually support any SAML2 standars compliant Identit
 
 Letting just anyone register via SAML has its downsides: A common problem is that you don't control which WikiNames will get "taken". So how can you   make sure your good friend John Smith gets !JohnSmith even though he's taking his time logging in for the first time?
 
-Easy. Enable WikiName Reservation in the configuration settings. Then create the !JohnSmith topic in the users web and add his e-mail-address to the user form. Now only the John Smith who claims this e-mail-address will get the WikiName. The other John Smiths will get mapped to !JohnSmith2, !JohnSmith3 and so on. This isn't designed to withstand malicious attacks, but should keep accidental assignment of a WikiName from happening. 
+Easy. Enable WikiName Reservation in the configuration settings. Then create the !JohnSmith topic in the users web and add his e-mail-address to the user form. Now only the John Smith who claims this e-mail-address will get the WikiName. The other John Smiths will get mapped to !JohnSmith2, !JohnSmith3 and so on. This isn't designed to withstand malicious attacks, but should keep accidental assignment of a WikiName from happening.
 
 ---+++ Bypassing SAML Autherntication and falling back to standard !TemplateLogin
 
-SAML Authentication captures the Foswiki login script, but it can be made to yield to template-based password authentication. Call [[%SCRIPTURLPATH{"login"}%?provider=native]] to see it in action.
+SAML Authentication captures the Foswiki login script, but it can be made to yield to template-based password authentication. Call [[%SCRIPTURLPATH{"login"}%?provider=native][%SCRIPTURLPATH{"login"}%?provider=native]] to see it in action.
 
 This can also come in handy when you've need to login to the admin user to access the configure script.
 
@@ -90,13 +103,17 @@ The SAML Service Provider (SP) implementation means that no usernames or passwor
 
 ---++ Info
 
-|  Dependencies: | <table border="1" class="foswikiTable"><tr><th>Name</th><th>Version</th><th>Description</th></tr>
-<tr><td align="left">NET:SAML2</td><td align="left"></td><td align="left">Required</td></tr>
-<tr><td align="left">LWP::UserAgent</td><td align="left">&gt;=6.15</td><td align="left">Required for getting the Metadata</td></tr>
-<tr><td align="left">Crypt::JWT</td><td align="left">&gt;=0.010</td><td align="left">Required for JWT signature verification</td></tr>
-<tr><td align="left">Crypt::Random</td><td align="left"></td><td align="left">Required for cryptographically secure nonces</td></tr>
-<tr><td align="left">JSON</td><td align="left"></td><td align="left">Required </td></tr></table> |
-|  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  Dependencies: |
+
+| *Name* | *Version* | *Description* |
+| NET:SAML2  | | Required  |
+| LWP::UserAgent  | &gt;=6.15  | Required for getting the Metadata  |
+| Crypt::JWT  | &gt;=0.010  | Required for JWT signature verification  |
+| Crypt::Random  | | Required for cryptographically secure nonces  |
+| JSON  | | Required  |
+
+|
+|  Change History: | <!-- versions below in reverse order --> <sticky> </sticky> |
 |  1.0.0 (24 Feb 2019): | Initial release |
 
 %META:FORM{name="PackageForm"}%
