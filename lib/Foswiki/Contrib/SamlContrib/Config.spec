@@ -17,10 +17,6 @@ $Foswiki::cfg{Saml}{Strict} = 1;
 $Foswiki::cfg{Saml}{Debug} = 1;
 
 # **STRING**  
-# If set use it instead of trying to guess the BaseURL of the view that will process the SAML Message.
-$Foswiki::cfg{Saml}{Baseurl} = '';
-
-# **STRING**  
 # Identifier of the Service Provide (SP) entity (must be a URI).
 # Foswiki is the Service Provider as it provides the Service
 # Local Copy of Metadata from Identity Provider
@@ -36,10 +32,6 @@ $Foswiki::cfg{Saml}{issuer} = 'https://foswiki.local';
 $Foswiki::cfg{Saml}{provider_name} = 'Foswiki';
 
 # **STRING**
-# SLS URL Location where the from the IdP will be returned.
-$Foswiki::cfg{Saml}{SpslsURL} = 'https://kimai.local/index.php';
-
-# **STRING**
 # Specify the certificate instead of using certs directory.
 # Service Provider Signing Certificate
 $Foswiki::cfg{Saml}{sp_signing_cert} = '/var/www/foswiki/saml/sign.pem';     
@@ -48,18 +40,6 @@ $Foswiki::cfg{Saml}{sp_signing_cert} = '/var/www/foswiki/saml/sign.pem';
 # Specify the private key instead of using the certs directory.
 # Service Provider Signing Key
 $Foswiki::cfg{Saml}{sp_sigining_key} = '/var/www/foswiki/saml/sign.key';     
-
-# **STRING**
-# Identifier of the Identity Provider (IdP) entity (must be a URI)
-$Foswiki::cfg{Saml}{IdpentityId} = 'https://accounts.google.com/o/saml2?idpid=########';
-
-# **STRING**
-# URL Target of the IdP where the Authentication Request Message will be sent.
-$Foswiki::cfg{Saml}{IdpssoURL} = 'https://accounts.google.com/o/saml2/idp?idpid=########';
-
-# **STRING**
-# URL Location of the IdP where SLO Request will be sent.
-$Foswiki::cfg{Saml}{IdpslsURL} = '';
 
 # **STRING**
 # Instead of use the whole x509cert you can use a fingerprint in order to validate a SAMLResponse.
@@ -71,14 +51,6 @@ $Foswiki::cfg{Saml}{cacert} = '/var/www/foswiki/saml/cacert.pem';
 # The default should give good results, but depending on the provider, you might want
 # to experiment with other claims, such as the 'name' claim.
 $Foswiki::cfg{Saml}{WikiNameAttributes} = 'fname,lname';
-
-# **STRING**
-# A list of kimai-usernames that shall not be authenticated via SAML but via the default kimai-authentication-adapter
-$Foswiki::cfg{Saml}{NonSAMLAcounts} = 'admin';
-
-# **STRING**
-# The Global Role to assign all new SAML Authenticated users to upon creation
-$Foswiki::cfg{Saml}{DefaultGlobalRoleName} = 'User';
 
 # **STRING**
 # The Groups to assign to the user upon creation via SAML
