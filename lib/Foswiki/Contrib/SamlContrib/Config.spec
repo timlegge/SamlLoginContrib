@@ -20,7 +20,7 @@ $Foswiki::cfg{Saml}{Debug} = 1;
 # Identifier of the Service Provide (SP) entity (must be a URI).
 # Foswiki is the Service Provider as it provides the Service
 # Local Copy of Metadata from Identity Provider
-$Foswiki::cfg{Saml}{metadata} = 'http://foswiki.local/metadata.xml';
+$Foswiki::cfg{Saml}{metadata} = 'http://localhost/metadata.xml';
 
 # **STRING**
 # ACS URL Location where the from the IdP will be returned.
