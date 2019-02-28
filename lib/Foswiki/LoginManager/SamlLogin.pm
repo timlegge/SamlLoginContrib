@@ -461,7 +461,6 @@ sub login {
               issuer        => $issuer,
               destination   => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'), # The ssl_url destination for redirect
               provider_name => $provider_name,
-              nameid_format => $idp->formats->{'emailAddress'},
         );
 
 	#print STDERR Dumper($authnreq);
