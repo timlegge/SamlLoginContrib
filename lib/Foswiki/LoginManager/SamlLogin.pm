@@ -77,8 +77,8 @@ sub loadSamlData {
     # we need to load it twice for each login
     $this->{metadata} = $Foswiki::cfg{Saml}{metadata};
     $this->{cacert} = $Foswiki::cfg{Saml}{cacert};
-    $this->{sp_sigining_key} = $Foswiki::cfg{Saml}{sp_sigining_key};
-    $this->{sp_sigining_cert} = $Foswiki::cfg{Saml}{sp_signing_cert};
+    $this->{sp_signing_key} = $Foswiki::cfg{Saml}{sp_signing_key};
+    $this->{sp_signing_cert} = $Foswiki::cfg{Saml}{sp_signing_cert};
     $this->{issuer} = $Foswiki::cfg{Saml}{issuer};
     $this->{provider_name} = $Foswiki::cfg{Saml}{provider_name};
 }
@@ -434,7 +434,7 @@ sub login {
     my $provider             = $query->param('provider');
     my $metadata	     = $Foswiki::cfg{Saml}{metadata};
     my $cacert               = $Foswiki::cfg{Saml}{cacert};
-    my $sp_signing_key      = $Foswiki::cfg{Saml}{sp_sigining_key};
+    my $sp_signing_key      = $Foswiki::cfg{Saml}{sp_signing_key};
     my $sp_signing_cert     = $Foswiki::cfg{Saml}{sp_signing_cert};
     my $issuer               = $Foswiki::cfg{Saml}{issuer};
     my $provider_name        = $Foswiki::cfg{Saml}{provider_name};

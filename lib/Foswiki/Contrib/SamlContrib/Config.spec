@@ -1,11 +1,10 @@
 # ---+ Security and Authentication
 # ---++ Saml 
-# This is the configuration used by the <b>SamlContrib</b>
+# This is the configuration used by <b>SamlLoginContrib</b>
 # <p>
-# To use an Saml server for authentication you have to use the PasswordManager
-# <b>SamlPasswdUser</b>.
-# To Use groups defined in Saml enable the UserMappingManager <b>SamlUserMapping</b>.
-# (see the Security Setting section)
+# To use a Saml server for authentication you have to use the PasswordManager
+# <b>none</b>.
+#
 
 # ---+++ Connection Settings
 # **BOOLEAN**
@@ -39,7 +38,7 @@ $Foswiki::cfg{Saml}{sp_signing_cert} = '/var/www/foswiki/saml/sign.pem';
 # **STRING**
 # Specify the private key instead of using the certs directory.
 # Service Provider Signing Key
-$Foswiki::cfg{Saml}{sp_sigining_key} = '/var/www/foswiki/saml/sign.key';     
+$Foswiki::cfg{Saml}{sp_signing_key} = '/var/www/foswiki/saml/sign.key';     
 
 # **STRING**
 # Instead of use the whole x509cert you can use a fingerprint in order to validate a SAMLResponse.
