@@ -99,7 +99,8 @@ it. Currently this is rather dumb; it should be made more intelligent.
 sub extractEmail {
     my $this = shift;
     my $attributes = shift;
-    return $attributes->{'Email'}[0] if exists $attributes->{'Email'};
+    my $email = $Foswiki::cfg{Saml}{EmailAttributes};
+    return $attributes->{$email}[0] if exists $attributes->{$email};
     return undef;
 }
 
@@ -256,6 +257,7 @@ sub mapUser {
     else {
 	$loginname = $candidate;
     }
+
     my $email = lc($this->extractEmail($attributes));
     
     if (!$this->_isAlreadyMapped($session, $loginname, $candidate)) {
@@ -403,7 +405,7 @@ sub samlCallback {
             # Restore the method used on origUrl so if it was a GET, we
             # get another GET.
             $query->method($origmethod);
-            print STDERR Dumper($origurl);
+	    #print STDERR Dumper($origurl);
             $session->redirect( $origurl, 1 );
             return;
         }

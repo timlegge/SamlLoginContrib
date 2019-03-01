@@ -45,11 +45,17 @@ $Foswiki::cfg{Saml}{sp_signing_key} = '/var/www/foswiki/saml/sign.key';
 # The CA Cert for the Identity Providers Certificate
 $Foswiki::cfg{Saml}{cacert} = '/var/www/foswiki/saml/cacert.pem';
 
-# **STRING LABEL="WikiName Claims"**
+# **STRING LABEL="WikiName Attribute"**
 # Comma-separated attributes which should make up the WikiName.
 # The default should give good results, but depending on the provider, you might want
 # to experiment with other claims, such as the 'name' claim.
 $Foswiki::cfg{Saml}{WikiNameAttributes} = 'fname,lname';
+
+# **STRING LABEL="Email Attribute"**
+# Attribute which should make up the Email Address.
+# The default should give good results, but depending on the provider, you might want
+# to experiment with other claims, such as the 'emailaddress' claim.
+$Foswiki::cfg{Saml}{EmailAttributes} = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress';
 
 # **STRING**
 # The Groups to assign to the user upon creation via SAML
