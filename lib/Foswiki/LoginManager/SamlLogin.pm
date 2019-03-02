@@ -339,17 +339,21 @@ sub samlCallback {
 
     $this->{cacert} = $Foswiki::cfg{Saml}{cacert};
 
-    #  Create the POST binding objrct to get the details from the SALMRespones'
+    #  Create the POST binding object to get the details from the SALMResponse'
     my $post = Net::SAML2::Binding::POST->new(cacert => $this->{cacert});
 
     # Send the SAMLResponse to the Binding for the POST
+    # The return has the CA certificate Subject and verified if correct
     my $ret = $post->handle_response(
         $saml_response
     );
         
     if ($ret) {
+        if ( $Foswiki::cfg{Saml}{Debug} == 1 ) {
+            print STDERR $ret;
+        }
         my $assertion = Net::SAML2::Protocol::Assertion->new_from_xml(
-        xml => decode_base64($saml_response)
+            xml => decode_base64($saml_response)
         );
 =pod
 	Verify that the response was related to the request
@@ -358,6 +362,8 @@ sub samlCallback {
 =cut
 	my $issuer = $Foswiki::cfg{Saml}{issuer};
 	my $saml_request_id = $this->getAndClearSessionValue('saml_request_id');
+
+	# $assertion->valid() checks the dates and the audience
 	my $valid = $assertion->valid($issuer, $saml_request_id);
 
         if (!$valid) {
@@ -365,6 +371,7 @@ sub samlCallback {
 	    Foswiki::Func::writeDebug("samlCallback: SAMLResponse \"InResponseTo\" does not match request ID") if $Foswiki::cfg{Saml}{Debug};
 	}
 	else {
+            # The audience and the dates NotBefore and NotOnOrAfter are correct
             if ( $Foswiki::cfg{Saml}{Debug} == 1 ) {
                 # output the attributes and values that are available in the response
 		keys %{$assertion->attributes};
@@ -454,8 +461,8 @@ sub login {
         $this->samlCallback($saml_response, $query, $session);
     }
     elsif ((defined $provider) && ($provider eq 'native')) {
-	# if we get a password or a request for the native login 
-	# provider, we redirect to the original TemplateLogin
+	# if we get a request for the native login 
+	# provider, we redirect to the original login
 	$this->SUPER::login($query, $session);
     }
     elsif ((defined $provider) && ($provider ne 'native')) {
