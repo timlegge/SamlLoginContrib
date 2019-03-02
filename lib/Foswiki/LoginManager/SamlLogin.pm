@@ -365,6 +365,13 @@ sub samlCallback {
 	    Foswiki::Func::writeDebug("samlCallback: SAMLResponse \"InResponseTo\" does not match request ID") if $Foswiki::cfg{Saml}{Debug};
 	}
 	else {
+            if ( $Foswiki::cfg{Saml}{Debug} == 1 ) {
+                # output the attributes and values that are available in the response
+		keys %{$assertion->attributes};
+                while(my($k, $v) = each %{$assertion->attributes}) {
+                    print STDERR $k . " >>> " . %$v[0];
+                }
+	    }
     	    my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
 	
             # SMELL: This isn't part of the public API! But Foswiki::Func doesn't provide login name lookup and
