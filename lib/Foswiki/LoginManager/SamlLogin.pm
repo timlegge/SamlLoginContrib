@@ -349,9 +349,8 @@ sub samlCallback {
     );
         
     if ($ret) {
-        if ( $Foswiki::cfg{Saml}{Debug} == 1 ) {
-            print STDERR $ret;
-        }
+        Foswiki::Func::writeDebug("Saml: $ret") if $Foswiki::cfg{Saml}{Debug};
+
         my $assertion = Net::SAML2::Protocol::Assertion->new_from_xml(
             xml => decode_base64($saml_response)
         );
@@ -375,8 +374,10 @@ sub samlCallback {
             if ( $Foswiki::cfg{Saml}{Debug} == 1 ) {
                 # output the attributes and values that are available in the response
 		keys %{$assertion->attributes};
+	        Foswiki::Func::writeDebug("saml: Assertion Attributes from SAMLResponse");
                 while(my($k, $v) = each %{$assertion->attributes}) {
-                    print STDERR $k . " >>> " . %$v[0];
+                    my $val = %$v[0];
+	            Foswiki::Func::writeDebug("    saml: $k: $val");
                 }
 	    }
     	    my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
