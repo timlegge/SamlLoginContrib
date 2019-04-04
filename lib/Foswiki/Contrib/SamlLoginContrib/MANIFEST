@@ -1,0 +1,6 @@
+!ci
+data/System/SamlLoginContrib.txt 0644 Documentation page
+lib/Foswiki/Contrib/SamlLoginContrib.pm  Perl module 
+lib/Foswiki/Contrib/SamlLoginContrib/Config.spec 0444 Configuration
+lib/Foswiki/Contrib/SamlLoginContrib/DEPENDENCIES 0664
+lib/Foswiki/LoginManager/SamlLogin.pm  Perl module

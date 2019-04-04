@@ -2,11 +2,11 @@
 
 =begin TML
 
----+ package Foswiki::Contrib::SamlContrib
+---+ package Foswiki::Contrib::SamlLoginContrib
 
 =cut
 
-package Foswiki::Contrib::SamlContrib;
+package Foswiki::Contrib::SamlLoginContrib;
 
 # Always use strict to enforce variable scoping
 use strict;

@@ -39,7 +39,7 @@ use Foswiki;
 use Foswiki::LoginManager::TemplateLogin ();
 use Foswiki::Sandbox ();
 
-use Foswiki::Contrib::SamlContrib();
+use Foswiki::Contrib::SamlLoginContrib();
 
 @Foswiki::LoginManager::SamlLogin::ISA = qw( Foswiki::LoginManager::TemplateLogin );
 
