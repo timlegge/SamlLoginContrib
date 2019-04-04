@@ -8,43 +8,12 @@
 
 package Foswiki::Contrib::SamlLoginContrib;
 
-# Always use strict to enforce variable scoping
 use strict;
 use warnings;
 
-# $VERSION is referred to by Foswiki, and is the only global variable that
-# *must* exist in this package. For best compatibility, the simple quoted decimal
-# version '1.00' is preferred over the triplet form 'v1.0.0'. 
-# "1.23_001" for "alpha" versions which compares lower than '1.24'.
-
-# For triplet format, The v prefix is required, along with "use version".
-# These statements MUST be on the same line.
-#  use version; our $VERSION = 'v1.2.3_001'
-# See "perldoc version" for more information on version strings.
-#
-# Note:  Alpha versions compare as numerically lower than the non-alpha version
-# so the versions in ascending order are:
-#   v1.2.1_001 -> v1.2.2 -> v1.2.2_001 -> v1.2.3
-#   1.21_001 -> 1.22 -> 1.22_001 -> 1.23
-#
 our $VERSION = '1.00';
+our $RELEASE = '04 Apr 2019';
 
-# $RELEASE is used in the "Find More Extensions" automation in configure.
-# It is a manually maintained string used to identify functionality steps.
-# You can use any of the following formats:
-# tuple   - a sequence of integers separated by . e.g. 1.2.3. The numbers
-#           usually refer to major.minor.patch release or similar. You can
-#           use as many numbers as you like e.g. '1' or '1.2.3.4.5'.
-# isodate - a date in ISO8601 format e.g. 2009-08-07
-# date    - a date in 1 Jun 2009 format. Three letter English month names only.
-# Note: it's important that this string is exactly the same in the extension
-# topic - if you use %$RELEASE% with BuildContrib this is done automatically.
-# It is preferred to keep this compatible with $VERSION. At some future
-# date, Foswiki will deprecate RELEASE and use the VERSION string.
-#
-our $RELEASE = '1.0.0';
-
-# One-line description of the module
 our $SHORTDESCRIPTION = 'Provides a LoginManager to authenticate via Saml';
 
 1;
