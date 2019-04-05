@@ -1,1 +1,11 @@
 *~
+*,v
+igp_*
+*.swp
+/SamlLoginContrib.md5
+/SamlLoginContrib.sha1
+/SamlLoginContrib.tgz
+/SamlLoginContrib.txt
+/SamlLoginContrib.zip
+/SamlLoginContrib_installer
+/SamlLoginContrib_installer.pl
