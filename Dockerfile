@@ -116,7 +116,7 @@ COPY LdapContrib.pm.diff /LdapContrib.pm.diff
 RUN cd /var/www/foswiki/lib/Foswiki/Plugins/NatSkinPlugin && \
 #    patch -p4 < /HtmlTitle.pm.diff && \
     cd /var/www/foswiki/lib/Foswiki/Contrib && \
-    patch -p0 < /LdapContrib.pm.diff && \
+#    patch -p0 < /LdapContrib.pm.diff && \
     cd /root && \
     git clone https://github.com/timlegge/SamlLoginContrib.git && \
     cd SamlLoginContrib && \
