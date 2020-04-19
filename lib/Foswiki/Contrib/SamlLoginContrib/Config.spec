@@ -11,9 +11,10 @@
 # Enable debug mode (to print errors) 
 $Foswiki::cfg{Saml}{Debug} = 1;
 
-# ---+++ Certificates and Metadata a Strings
 # **BOOLEAN**
-# Didabling this will allo you to use files on the webserver to metadata and certificate files.
+# Enabling this will allow you to use the fields on the configure
+# page to enter the content of the certificates keys and metadata 
+# instead of file names of the files on the webserver.
 $Foswiki::cfg{Saml}{certs_as_string} = 1;
 
 # **STRING**  
