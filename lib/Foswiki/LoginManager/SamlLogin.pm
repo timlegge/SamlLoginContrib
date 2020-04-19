@@ -55,9 +55,13 @@ sub new {
   my ($class, $session) = @_;
   my $this = bless($class->SUPER::new($session), $class);
   undef $this->{metadata};
+  undef $this->{metadata_string};
   undef $this->{cacert};
+  undef $this->{cacert_string};
   undef $this->{sp_signing_key};
+  undef $this->{sp_signing_key_string};
   undef $this->{sp_signing_cert};
+  undef $this->{sp_signing_cert_string};
   undef $this->{issuer};
   undef $this->{provider_name};
   undef $this->{saml_request_id};
@@ -75,10 +79,18 @@ sub loadSamlData {
     #
     # TODO: We should cache this. On sites with heavy traffic, this adds needless delays, especially since
     # we need to load it twice for each login
-    $this->{metadata} = $Foswiki::cfg{Saml}{metadata};
-    $this->{cacert} = $Foswiki::cfg{Saml}{cacert};
-    $this->{sp_signing_key} = $Foswiki::cfg{Saml}{sp_signing_key};
-    $this->{sp_signing_cert} = $Foswiki::cfg{Saml}{sp_signing_cert};
+    $this->{certs_as_string} = $Foswiki::cfg{Saml}{certs_as_string};
+    if ($this->{certs_as_string} {
+        $this->{metadata} = $Foswiki::cfg{Saml}{metadata};
+        $this->{cacert} = $Foswiki::cfg{Saml}{cacert};
+        $this->{sp_signing_key} = $Foswiki::cfg{Saml}{sp_signing_key};
+        $this->{sp_signing_cert} = $Foswiki::cfg{Saml}{sp_signing_cert};
+    } else {
+        $this->{metadata_string} = $Foswiki::cfg{Saml}{metadata_string};
+        $this->{cacert_string} = $Foswiki::cfg{Saml}{cacert_string};
+        $this->{sp_signing_key_string} = $Foswiki::cfg{Saml}{sp_signing_key_string};
+        $this->{sp_signing_cert_string} = $Foswiki::cfg{Saml}{sp_signing_cert_string};
+    }
     $this->{issuer} = $Foswiki::cfg{Saml}{issuer};
     $this->{provider_name} = $Foswiki::cfg{Saml}{provider_name};
 }
@@ -139,21 +151,21 @@ sub buildWikiName {
     my $wikiname_attributes = $this->{'wikiname_attrs'};
     my $wikiname = '';
     foreach my $attr (split(/\s*,\s*/, $wikiname_attributes)) {
-	$wikiname .= $attributes->{$attr}[0];
+        $wikiname .= $attributes->{$attr}[0];
     }
     # some minimal normalization
     $wikiname =~ s/\s+//g;
 
     if ($wikiname =~ m/Group$/) {
-	return $Foswiki::cfg{DefaultUserWikiName};
+        return $Foswiki::cfg{DefaultUserWikiName};
     }
 
     # Forbidden wikinames get mapped to WikiGuest too
     my @forbidden = split(/\s+,\s+/, $Foswiki::cfg{Saml}{ForbiddenWikinames});
     for my $bignono (@forbidden) {
-	if ($wikiname eq $bignono) {
-	    return $Foswiki::cfg{DefaultUserWikiName};
-	}
+        if ($wikiname eq $bignono) {
+            return $Foswiki::cfg{DefaultUserWikiName};
+        }
     }
     return $wikiname;
 }
@@ -178,23 +190,28 @@ sub matchWikiUser {
     # so we return the candidate wikiname unchanged. We also return immediately
     # if User Form Matching is disabled.
     if (!Foswiki::Func::topicExists($web, $wikiname) || !$Foswiki::cfg{Saml}{UserFormMatch}) {
-	return $wikiname;
+        return $wikiname;
     }
 
     # otherwise, we see if the e-mail address matches the one in the user topic.
     # if so, we pronounce a match.
     my $fieldname = $Foswiki::cfg{Saml}{UserFormMatchField} || 'Email';
     my $options = {
-	type => 'query',
-	web => $web,
+        type => 'query',
+        web => $web,
     };
 
-    my $matches = Foswiki::Func::query("fields[name='$fieldname'].value=~'^\\s*$email\\s*\$'", ["$web.$wikiname"], $options);
+    my $matches = Foswiki::Func::query(
+                    "fields[name='$fieldname'].value=~'^\\s*$email\\s*\$'",
+                    ["$web.$wikiname"],
+                    $options);
+
     while ($matches->hasNext) {
-	my $found = $matches->next;
-	my ($dummy, $wikiname) = Foswiki::Func::normalizeWebTopicName('', $found);
-	return $wikiname;
+        my $found = $matches->next;
+        my ($dummy, $wikiname) = Foswiki::Func::normalizeWebTopicName('', $found);
+        return $wikiname;
     }
+
     # No match. This means we shouldn't give out the candidate $wikiname.
     return undef;
 }
@@ -217,14 +234,14 @@ sub _isAlreadyMapped {
     # in place.
     my $is_mapped = 0;
     if ($Foswiki::cfg{Register}{AllowLoginName}) {
-	my $aWikiname = Foswiki::Func::userToWikiName($loginname, 1);
-	$is_mapped = $aWikiname ne $loginname;
-	return $is_mapped;
+        my $aWikiname = Foswiki::Func::userToWikiName($loginname, 1);
+        $is_mapped = $aWikiname ne $loginname;
+        return $is_mapped;
     } else {
-	# It's important to return 0 here so that if mapping is turned
-	# off, on-the-spot pre-assignment checking is initiated by mapUser.
-	# If this returned 1, we'd never do any checking.
-	return 0;
+        # It's important to return 0 here so that if mapping is turned
+        # off, on-the-spot pre-assignment checking is initiated by mapUser.
+        # If this returned 1, we'd never do any checking.
+        return 0;
     }
 }
 
@@ -250,40 +267,44 @@ sub mapUser {
     my $loginname = undef;
     my $candidate = $this->buildWikiName($attributes);
     if ($Foswiki::cfg{Register}{AllowLoginName}) {
-	$loginname = $this->extractLoginname($nameid);
+        $loginname = $this->extractLoginname($nameid);
     }
     # SMELL: Turning off AllowLoginName for Open ID is a really bad idea. Should
     # we complain, or add a warning to the log?
     else {
-	$loginname = $candidate;
+        $loginname = $candidate;
     }
 
     my $email = lc($this->extractEmail($attributes));
     
     if (!$this->_isAlreadyMapped($session, $loginname, $candidate)) {
-	my $wikiname = undef;
-	my $orig_candidate = $candidate;
-	my $counter = 1;
-	# Find an acceptable wikiname. We simply add an increasing number if a name is taken already
-	while (!defined($wikiname)) {
-	    my $users = $session->{users}->findUserByWikiName($candidate);
-	    if (scalar @$users == 0) {
-		$wikiname = $this->matchWikiUser($candidate, $email);
-		Foswiki::Func::writeDebug("Saml: matchWikiUser for $candidate produces $wikiname") if $Foswiki::cfg{Saml}{Debug};
-		if (defined $wikiname) {
-		    my $cuid = $session->{'users'}->addUser($loginname, $wikiname, undef, [$email]);
-		        Foswiki::Func::writeDebug("Saml Mapped user $cuid ($email) to $wikiname") if $Foswiki::cfg{Saml}{Debug};
-		    return $cuid;
-		}
-	    }
-	    $counter = $counter + 1;
-	    $candidate = $orig_candidate . $counter;
-	}
+        my $wikiname = undef;
+        my $orig_candidate = $candidate;
+        my $counter = 1;
+        # Find an acceptable wikiname. We simply add an increasing number if a name is taken already
+        while (!defined($wikiname)) {
+            my $users = $session->{users}->findUserByWikiName($candidate);
+            if (scalar @$users == 0) {
+                $wikiname = $this->matchWikiUser($candidate, $email);
+                Foswiki::Func::writeDebug("Saml: matchWikiUser for $candidate produces $wikiname") if $Foswiki::cfg{Saml}{Debug};
+               if (defined $wikiname) {
+                    my $cuid = $session->{'users'}->addUser(
+                                    $loginname,
+                                    $wikiname,
+                                    undef,
+                                    [$email]);
+                    Foswiki::Func::writeDebug("Saml Mapped user $cuid ($email) to $wikiname") if $Foswiki::cfg{Saml}{Debug};
+                    return $cuid;
+                }
+            }
+            $counter = $counter + 1;
+            $candidate = $orig_candidate . $counter;
+        }
     } else {
-	# Mapping exists already, so return the canonical user id
-	my $cuid = $session->{users}->getCanonicalUserID($loginname);
-	Foswiki::Func::writeDebug("Saml Use preexisting mapping for $loginname") if $Foswiki::cfg{Saml}{Debug};
-	return $cuid;
+        # Mapping exists already, so return the canonical user id
+        my $cuid = $session->{users}->getCanonicalUserID($loginname);
+        Foswiki::Func::writeDebug("Saml Use preexisting mapping for $loginname") if $Foswiki::cfg{Saml}{Debug};
+        return $cuid;
     }
 
 }
@@ -338,9 +359,13 @@ sub samlCallback {
     $query->delete('SAMLResponse');
 
     $this->{cacert} = $Foswiki::cfg{Saml}{cacert};
+    $this->{cacert_string} = $Foswiki::cfg{Saml}{cacert_string};
 
     #  Create the POST binding object to get the details from the SALMResponse'
-    my $post = Net::SAML2::Binding::POST->new(cacert => $this->{cacert});
+    #TIM my $post = Net::SAML2::Binding::POST->new(cacert => $this->{cacert});
+    my $post = Net::SAML2::Binding::POST->new(
+            cacert => $this->{cacert_string},
+            certs_as_string => $this->{certs_as_string});
 
     # Send the SAMLResponse to the Binding for the POST
     # The return has the CA certificate Subject and verified if correct
@@ -355,33 +380,33 @@ sub samlCallback {
             xml => decode_base64($saml_response)
         );
 =pod
-	Verify that the response was related to the request
-	the issuer and the id from the Saml Authnreq must be sent to the Assertion->valid()
-	probably a better way to track the id/inresponseto
+        Verify that the response was related to the request
+        the issuer and the id from the Saml Authnreq must be sent to the Assertion->valid()
+        probably a better way to track the id/inresponseto
 =cut
-	my $issuer = $Foswiki::cfg{Saml}{issuer};
-	my $saml_request_id = $this->getAndClearSessionValue('saml_request_id');
+        my $issuer = $Foswiki::cfg{Saml}{issuer};
+        my $saml_request_id = $this->getAndClearSessionValue('saml_request_id');
 
-	# $assertion->valid() checks the dates and the audience
-	my $valid = $assertion->valid($issuer, $saml_request_id);
+        # $assertion->valid() checks the dates and the audience
+        my $valid = $assertion->valid($issuer, $saml_request_id);
 
         if (!$valid) {
             print STDERR "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ERROR INVALID ^^^^^^^^^^^^^^^^^^^\n";
-	    Foswiki::Func::writeDebug("samlCallback: SAMLResponse \"InResponseTo\" does not match request ID") if $Foswiki::cfg{Saml}{Debug};
-	}
-	else {
+            Foswiki::Func::writeDebug("samlCallback: SAMLResponse \"InResponseTo\" does not match request ID") if $Foswiki::cfg{Saml}{Debug};
+        }
+        else {
             # The audience and the dates NotBefore and NotOnOrAfter are correct
             if ( $Foswiki::cfg{Saml}{Debug} == 1 ) {
                 # output the attributes and values that are available in the response
-		keys %{$assertion->attributes};
-	        Foswiki::Func::writeDebug("saml: Assertion Attributes from SAMLResponse");
+                keys %{$assertion->attributes};
+                Foswiki::Func::writeDebug("saml: Assertion Attributes from SAMLResponse");
                 while(my($k, $v) = each %{$assertion->attributes}) {
                     my $val = %$v[0];
-	            Foswiki::Func::writeDebug("    saml: $k: $val");
+                    Foswiki::Func::writeDebug("    saml: $k: $val");
                 }
-	    }
-    	    my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
-	
+            }
+            my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
+
             # SMELL: This isn't part of the public API! But Foswiki::Func doesn't provide login name lookup and
             # wikiname lookup doesn't work yet at that stage (yields the loginname, ironically...)
             my $wikiname = $session->{users}->getWikiName($cuid);
@@ -420,14 +445,14 @@ sub samlCallback {
             # Restore the method used on origUrl so if it was a GET, we
             # get another GET.
             $query->method($origmethod);
-	    #print STDERR Dumper($origurl);
+            #print STDERR Dumper($origurl);
             $session->redirect( $origurl, 1 );
             return;
         }
     }
 }
 
-=pod	
+=pod
 ---++ ObjectMethod login($query, $session) 
 The login method now acts as a switchboard. There are basically
 two different uses of the login method.
@@ -448,13 +473,21 @@ sub login {
 
     my ( $this, $query, $session ) = @_;
 
-    my $provider             = $query->param('provider');
-    my $metadata	     = $Foswiki::cfg{Saml}{metadata};
-    my $cacert               = $Foswiki::cfg{Saml}{cacert};
-    my $sp_signing_key      = $Foswiki::cfg{Saml}{sp_signing_key};
-    my $sp_signing_cert     = $Foswiki::cfg{Saml}{sp_signing_cert};
-    my $issuer               = $Foswiki::cfg{Saml}{issuer};
-    my $provider_name        = $Foswiki::cfg{Saml}{provider_name};
+    my $provider                    = $query->param('provider');
+    my $certs_as_string             = $Foswiki::cfg{Saml}{certs_as_string};
+    if ( $certs_as_string ) {
+        my $metadata                = $Foswiki::cfg{Saml}{metadata};
+        my $cacert                  = $Foswiki::cfg{Saml}{cacert};
+        my $sp_signing_key          = $Foswiki::cfg{Saml}{sp_signing_key};
+        my $sp_signing_cert         = $Foswiki::cfg{Saml}{sp_signing_cert};
+    } else {
+        my $metadata_string         = $Foswiki::cfg{Saml}{metadata_string};
+        my $cacert_string           = $Foswiki::cfg{Saml}{cacert_string};
+        my $sp_signing_key_string   = $Foswiki::cfg{Saml}{sp_signing_key_string};
+        my $sp_signing_cert_string  = $Foswiki::cfg{Saml}{sp_signing_cert_string};
+    }
+    my $issuer                      = $Foswiki::cfg{Saml}{issuer};
+    my $provider_name               = $Foswiki::cfg{Saml}{provider_name};
 
     my $saml_response = $query->param('SAMLResponse');
 
@@ -462,39 +495,48 @@ sub login {
         $this->samlCallback($saml_response, $query, $session);
     }
     elsif ((defined $provider) && ($provider eq 'native')) {
-	# if we get a request for the native login 
-	# provider, we redirect to the original login
-	$this->SUPER::login($query, $session);
+        # if we get a request for the native login
+        # provider, we redirect to the original login
+        $this->SUPER::login($query, $session);
     }
     elsif ((defined $provider) && ($provider ne 'native')) {
-	return;
+        return;
     }
     else {
-        my $idp = Net::SAML2::IdP->new_from_url(url => $metadata, cacert => $cacert);
-	#print STDERR Dumper($idp);
+        my $idp = '';
+        if (! ($certs_as_string) ) {
+            $idp = Net::SAML2::IdP->new_from_url(url => $metadata, cacert => $cacert);
+        } else {
+            $idp = Net::SAML2::IdP->new_from_xml(
+                    xml => $metadata_string,
+                    cacert => $cacert_string,
+                    certs_as_string => 1);
+        }
 
-	# Important not to return as XML here as we need to track the id for later verification
-	my $authnreq = Net::SAML2::Protocol::AuthnRequest->new(
-              issuer        => $issuer,
-              destination   => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'), # The ssl_url destination for redirect
-              provider_name => $provider_name,
+        # Important not to return as XML here as we need to track the id for later verification
+        my $authnreq = Net::SAML2::Protocol::AuthnRequest->new(
+            issuer        => $issuer,
+            # The sso_url destination for redirect
+            destination   => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
+            provider_name => $provider_name,
         );
 
-	#print STDERR Dumper($authnreq);
-
-	# Store the request's id for later verification
-	Foswiki::Func::setSessionValue('saml_request_id', $authnreq->id);
+        # Store the request's id for later verification
+        Foswiki::Func::setSessionValue(
+           'saml_request_id',
+           $authnreq->id
+        );
 
         my $redirect = Net::SAML2::Binding::Redirect->new(
-              key => $sp_signing_key,
-              cert => $sp_signing_cert,
-              param => 'SAMLRequest',
-              url => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'), # The ssl_url destination for redirect
+            key => $sp_signing_key_string,
+            cert => $sp_signing_cert_string,
+            param => 'SAMLRequest',
+            # The ssl_url destination for redirect
+            url => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
+            certs_as_string => $certs_as_string,
         );
-        #print STDERR Dumper($redirect);
 
         my $url = $redirect->sign($authnreq->as_xml);
-        #print Dumper($url);
     
         $this->redirectToProvider($url, $query, $session);
     }

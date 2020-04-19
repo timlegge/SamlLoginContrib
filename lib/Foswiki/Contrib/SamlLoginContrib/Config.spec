@@ -8,18 +8,23 @@
 
 # ---+++ Connection Settings
 # **BOOLEAN**
-# Reject messages if the SAML standard is not strictly followed or not signed or encrypted if required.
-$Foswiki::cfg{Saml}{Strict} = 1;
-
-# **BOOLEAN**
 # Enable debug mode (to print errors) 
 $Foswiki::cfg{Saml}{Debug} = 1;
 
+# ---+++ Certificates and Metadata a Strings
+# **BOOLEAN**
+# Didabling this will allo you to use files on the webserver to metadata and certificate files.
+$Foswiki::cfg{Saml}{certs_as_string} = 1;
+
 # **STRING**  
-# Identifier of the Service Provide (SP) entity (must be a URI).
-# Foswiki is the Service Provider as it provides the Service
+# Identity Provider (IdP) metadata file location (must be a URI).
 # Local Copy of Metadata from Identity Provider
 $Foswiki::cfg{Saml}{metadata} = 'http://localhost/metadata.xml';
+
+# **XML**
+# Identity Provider (IdP) metadata xml (must be valid XML).
+# Metadata from Identity Provider as a string
+$Foswiki::cfg{Saml}{metadata_string} = '';
 
 # **STRING**
 # ACS URL Location where the from the IdP will be returned.
@@ -30,20 +35,35 @@ $Foswiki::cfg{Saml}{issuer} = 'https://foswiki.local';
 # Bug in Net::SAML2 prevents this from being sent
 $Foswiki::cfg{Saml}{provider_name} = 'Foswiki';
 
-# **STRING**
-# Specify the certificate instead of using certs directory.
-# Service Provider Signing Certificate
+# **STRING LABEL="Request Signing Certificate File"**
+# Specify the request signing certificate file location.
+# Service Provider Signing Certificate File
 $Foswiki::cfg{Saml}{sp_signing_cert} = '/var/www/foswiki/saml/sign.pem';     
 
-# **STRING**
-# Specify the private key instead of using the certs directory.
-# Service Provider Signing Key
+# **CERT LABEL="Request Signing Certificate (Base64)"**
+# Specify the certificate instead of the file location.
+# Service Provider Signing Certificate as Base 64 String
+$Foswiki::cfg{Saml}{sp_signing_cert_string} = '';
+
+# **STRING LABEL="Request Signing Key File"**
+# Specify the private key file location.
+# Service Provider Signing Private Key File
 $Foswiki::cfg{Saml}{sp_signing_key} = '/var/www/foswiki/saml/sign.key';     
 
-# **STRING**
-# Instead of use the whole x509cert you can use a fingerprint in order to validate a SAMLResponse.
-# The CA Cert for the Identity Providers Certificate
+# **CERT LABEL="Request Signing Key (Base64)"**
+# Specify the private key instead of the file location.
+# Service Provider Signing Private Key as Base 64 String
+$Foswiki::cfg{Saml}{sp_signing_key_string} = '';
+
+# **STRING LABEL="Identity Provider CA Cert File"**
+# Specify the CA Certificate as a file location.
+# Identity Provider CA Certificate
 $Foswiki::cfg{Saml}{cacert} = '/var/www/foswiki/saml/cacert.pem';
+
+# **CERT LABEL="Identity Provider CA Cert (Base64)"**
+# Specify the CA Certificate instead of the file location.
+# Identity Provider CA Certificate as Base 64 String
+$Foswiki::cfg{Saml}{cacert_string} = '';
 
 # **STRING LABEL="WikiName Attribute"**
 # Comma-separated attributes which should make up the WikiName.
@@ -88,3 +108,4 @@ $Foswiki::cfg{Saml}{UserFormMatchField} = 'Email';
 $Foswiki::cfg{Saml}{ForbiddenWikinames} = 'AdminUser,ProjectContributor,RegistrationAgent';
 
 1;
+
