@@ -3,7 +3,6 @@ Crypt::OpenSSL::Bignum,>=0.09,cpan,Required
 Crypt::OpenSSL::DSA,>=0.19,cpan,Required
 Crypt::OpenSSL::Random,>=0.15,cpan,Required
 Crypt::OpenSSL::RSA,>=0.31,cpan,Required
-Crypt::OpenSSL::VerifyX509,>=0.10,cpan,Required
 Crypt::OpenSSL::X509,>=1.812,cpan,Required
 DateTime::Format::XSD,>=0.2,cpan,Required
 Digest::SHA1,>=2.13,cpan,Required

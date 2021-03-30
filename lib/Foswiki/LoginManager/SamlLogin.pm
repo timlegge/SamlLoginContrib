@@ -32,7 +32,6 @@ use Net::SAML2;
 use Data::Dumper;
 use Net::SAML2::XML::Sig;
 use MIME::Base64 qw/ decode_base64 /;
-use Crypt::OpenSSL::VerifyX509;
 use strict;
 use warnings;
 use Foswiki;
