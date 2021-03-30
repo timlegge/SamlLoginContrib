@@ -1,5 +1,5 @@
 # ---+ Security and Authentication
-# ---++ Saml 
+# ---++ Saml
 # This is the configuration used by <b>SamlLoginContrib</b>
 # <p>
 # To use a Saml server for authentication you have to use the PasswordManager
@@ -8,10 +8,10 @@
 
 # ---+++ Connection Settings
 # **BOOLEAN LABEL="Enable Debugging"**
-# Enable debug mode (to print errors) 
+# Enable debug mode (to print errors)
 $Foswiki::cfg{Saml}{Debug} = 1;
 
-# **STRING**  
+# **STRING**
 # Identifier of the Service Provide (SP) entity (must be a URI).
 # Foswiki is the Service Provider as it provides the Service
 # Local Copy of Metadata from Identity Provider
@@ -30,12 +30,12 @@ $Foswiki::cfg{Saml}{provider_name} = 'Foswiki';
 # **STRING LABEL="Request Signing Certificate File"**
 # Specify the request signing certificate file location.
 # Service Provider Signing Certificate File
-$Foswiki::cfg{Saml}{sp_signing_cert} = '/var/www/foswiki/saml/sign.pem';     
+$Foswiki::cfg{Saml}{sp_signing_cert} = '/var/www/foswiki/saml/sign.pem';
 
 # **STRING LABEL="Request Signing Key File"**
 # Specify the private key file location.
 # Service Provider Signing Private Key File
-$Foswiki::cfg{Saml}{sp_signing_key} = '/var/www/foswiki/saml/sign.key';     
+$Foswiki::cfg{Saml}{sp_signing_key} = '/var/www/foswiki/saml/sign.key';
 
 # **STRING LABEL="Identity Provider CA Cert File"**
 # Specify the CA Certificate as a file location.
