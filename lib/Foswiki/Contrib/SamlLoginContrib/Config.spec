@@ -7,11 +7,7 @@
 #
 
 # ---+++ Connection Settings
-# **BOOLEAN**
-# Reject messages if the SAML standard is not strictly followed or not signed or encrypted if required.
-$Foswiki::cfg{Saml}{Strict} = 1;
-
-# **BOOLEAN**
+# **BOOLEAN LABEL="Enable Debugging"**
 # Enable debug mode (to print errors) 
 $Foswiki::cfg{Saml}{Debug} = 1;
 
@@ -21,28 +17,29 @@ $Foswiki::cfg{Saml}{Debug} = 1;
 # Local Copy of Metadata from Identity Provider
 $Foswiki::cfg{Saml}{metadata} = 'http://localhost/metadata.xml';
 
-# **STRING**
+# **STRING LABEL="IDP Metadata URI"**
+# Identity Provider (IdP) metadata file location (must be a URI).
 # ACS URL Location where the from the IdP will be returned.
 $Foswiki::cfg{Saml}{issuer} = 'https://foswiki.local';
 
-# **STRING**
+# **STRING LABEL="Service Provider Name"**
 # Service Provider (Application) name
 # Bug in Net::SAML2 prevents this from being sent
 $Foswiki::cfg{Saml}{provider_name} = 'Foswiki';
 
-# **STRING**
-# Specify the certificate instead of using certs directory.
-# Service Provider Signing Certificate
+# **STRING LABEL="Request Signing Certificate File"**
+# Specify the request signing certificate file location.
+# Service Provider Signing Certificate File
 $Foswiki::cfg{Saml}{sp_signing_cert} = '/var/www/foswiki/saml/sign.pem';     
 
-# **STRING**
-# Specify the private key instead of using the certs directory.
-# Service Provider Signing Key
+# **STRING LABEL="Request Signing Key File"**
+# Specify the private key file location.
+# Service Provider Signing Private Key File
 $Foswiki::cfg{Saml}{sp_signing_key} = '/var/www/foswiki/saml/sign.key';     
 
-# **STRING**
-# Instead of use the whole x509cert you can use a fingerprint in order to validate a SAMLResponse.
-# The CA Cert for the Identity Providers Certificate
+# **STRING LABEL="Identity Provider CA Cert File"**
+# Specify the CA Certificate as a file location.
+# Identity Provider CA Certificate
 $Foswiki::cfg{Saml}{cacert} = '/var/www/foswiki/saml/cacert.pem';
 
 # **STRING LABEL="WikiName Attribute"**
@@ -57,7 +54,7 @@ $Foswiki::cfg{Saml}{WikiNameAttributes} = 'fname,lname';
 # to experiment with other claims, such as the 'emailaddress' claim.
 $Foswiki::cfg{Saml}{EmailAttributes} = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress';
 
-# **STRING**
+# **STRING LABEL="Default Group Memberships"**
 # The Groups to assign to the user upon creation via SAML
 $Foswiki::cfg{Saml}{DefaultGroupMemberships} = 'WikiUsers';
 

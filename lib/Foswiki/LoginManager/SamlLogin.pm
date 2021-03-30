@@ -133,7 +133,7 @@ sub buildWikiName {
     my $this = shift;
     my $attributes = shift;
 
-    $this->{wikiname_attrs} = $Foswiki::cfg{'Saml'}{'WikiNameAttributes'};
+    $this->{wikiname_attrs} = $Foswiki::cfg{Saml}{WikiNameAttributes};
 
     my $wikiname_attributes = $this->{'wikiname_attrs'};
     my $wikiname = '';
@@ -171,7 +171,7 @@ sub matchWikiUser {
     my $wikiname = shift;
     my $email = shift;
 
-    my $web = $Foswiki::cfg{'UsersWebName'} || 'Main';
+    my $web = $Foswiki::cfg{UsersWebName} || 'Main';
 
     # If the Wiki User Topic doesn't exist, there is no forseeable conflict,
     # so we return the candidate wikiname unchanged. We also return immediately
