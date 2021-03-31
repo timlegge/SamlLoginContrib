@@ -1,6 +1,6 @@
 # Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 #
-# Copyright (C) 2019 by Timothy Legge timlegge@gmail.com
+# Copyright (C) 2021-2019 by Timothy Legge timlegge@gmail.com
 # Based on foswiki/OpenIDLoginContrib
 # Copyright (C) 2016 by Pascal Schuppli pascal.schuppli@gbsl.ch
 #

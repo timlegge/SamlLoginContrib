@@ -54,10 +54,6 @@ $Foswiki::cfg{Saml}{WikiNameAttributes} = 'fname,lname';
 # to experiment with other claims, such as the 'emailaddress' claim.
 $Foswiki::cfg{Saml}{EmailAttributes} = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress';
 
-# **STRING LABEL="Default Group Memberships"**
-# The Groups to assign to the user upon creation via SAML
-$Foswiki::cfg{Saml}{DefaultGroupMemberships} = 'WikiUsers';
-
 # **BOOLEAN LABEL="Reserve WikiNames"**
 # Enable this to pre-assign WikiNames to specific people.
 # You can make sure that a WikiName will be assigned to a specific user by
