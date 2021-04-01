@@ -43,7 +43,7 @@ Assumes that SamlLoginContrib is installed and enabled and you are logged in as 
 
 You need the following information before you can continue:
    1. The metadata xml file provided by your Identity Provider
-   1. The SAML "Application/Service Provider defined on your Identity Provider
+   1. The SAML "Application/Service Provider" defined on your Identity Provider
    1. The Root Certificate that the Identity provider will use to sign the SAMLResponse
    1. A public/private key pair for your Application (Service Provider).  This is used to sign the request to the Identity Provider
 
@@ -59,18 +59,21 @@ Not having our own user mapper has it's downsides. For example, you can't link a
 
 *Warning:* You are strongly discouraged from disabling the use of loginnames. In fact, you should only ever consider this if you either have full control over the SAML Identity providers enabled for your site, or if you don't care about people being able to impersonate others.
 
----+++ Logging in a the Local Admin
+---+++ Logging in as the Local Admin
 
 To login as the local admin (to access configure) you need to tell the login process that you wish to use the native login:
 <verbatim>https://foswiki.local/bin/login?provider=native</verbatim>
 
 ---++ Supported SAML Identity Providers
 
-SamlLoginContrib aims to eventually support any SAML2 standars compliant Identity Provider and will include configuration options to allow you to use the data they provide.  So here's the current list of which providers were tested.
+SamlLoginContrib aims to eventually support any SAML2 standards compliant Identity Provider and will include configuration options to allow you to use the data they provide.  So here's the current list of which providers were tested.
 
 | *Provider* | *State* |
 | Microsoft Azure | %GREEN%Tested%ENDCOLOR% |
 | Google GSuite | %GREEN%Works%ENDCOLOR% |
+| Jump | %GREEN%Works%ENDCOLOR% |
+| OneLogin | %GREEN%Works%ENDCOLOR% |
+| Keycloak | %GREEN%Works%ENDCOLOR% |
 
 ---++ Bugs, Shortcomings, Future work
 
@@ -95,7 +98,7 @@ This can also come in handy when you've need to login to the admin user to acces
 
 ---++ Internals & security
 
-The SAML Service Provider (SP) implementation means that no usernames or passwords are ever exposed to the user agent. The implementation currently uses Net::SAML2::XML::Sig to verify the signature of the response and Crypt::OpenSSL::VerifyX509 verify signing certificate is trusted by the Root CA Cert of Identity Provider. In addition, the ID of the request from the application/Service Provider (SP) is verified against the InResponseTo value in the SAMLResponse.
+The SAML Service Provider (SP) implementation means that no usernames or passwords are ever exposed to the user agent. The implementation currently uses Net::SAML2::XML::Sig to verify the signature of the response and Crypt::OpenSSL::Verify to verify that the signing certificate is trusted by the Root CA Cert of Identity Provider. In addition, the ID of the request from the application/Service Provider (SP) is verified against the InResponseTo value in the SAMLResponse.
 
 ---++ References
    * SAML Wiki at Oasis-Open.org: https://wiki.oasis-open.org/security/FrontPage
@@ -115,14 +118,15 @@ The SAML Service Provider (SP) implementation means that no usernames or passwor
 |
 |  Change History: | <!-- versions below in reverse order --> <sticky> </sticky> |
 |  1.0.0 (24 Feb 2019): | Initial release |
+|  1.1.0 (30 Mar 2021): | Clean up of Code, Debugging and Readaability Improvements |
 
 %META:FORM{name="PackageForm"}%
 %META:FIELD{name="Author" title="Author" value="TimothyLegge"}%
-%META:FIELD{name="Version" title="Version" value="1.00"}%
-%META:FIELD{name="Release" title="Release" value="24 Feb 2019"}%
+%META:FIELD{name="Version" title="Version" value="1.1.0"}%
+%META:FIELD{name="Release" title="Release" value="30 Mar 2021"}%
 %META:FIELD{name="Description" title="Description" value="Enables Authentication via SAML Authentication"}%
 %META:FIELD{name="Repository" title="Repository" value="https://github.com/timlegge/SamlLoginContrib"}%
-%META:FIELD{name="Copyright" title="Copyright" value="&copy; 2019, TimothyLegge and  2016, PascalSchuppli (Portions from OpenIDLoginContrib), All Rights Reserved"}%
+%META:FIELD{name="Copyright" title="Copyright" value="&copy; 2019-2021, TimothyLegge and  2016, PascalSchuppli (Portions from OpenIDLoginContrib), All Rights Reserved"}%
 %META:FIELD{name="License" title="License" value="GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]])"}%
 %META:FIELD{name="Home" title="Home" value="http://foswiki.org/Extensions/%25TOPIC%25"}%
 %META:FIELD{name="Support" title="Support" value="http://foswiki.org/Support/%25TOPIC%25"}%
