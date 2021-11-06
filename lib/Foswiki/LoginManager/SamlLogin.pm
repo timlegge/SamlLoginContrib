@@ -243,10 +243,14 @@ sub _isAlreadyMapped {
     my $is_mapped = 0;
     if ($Foswiki::cfg{Register}{AllowLoginName}) {
         my $aWikiname = Foswiki::Func::userToWikiName($loginname, 1);
-        if ( $aWikiname eq $loginname ) {
-            $is_mapped = 1;
-        }
-        #$is_mapped = $aWikiname ne $loginname;
+        Foswiki::Func::writeDebug(
+          "    _isAlreadyMapped: logininame: $loginname") if $this->{Saml}{debug};
+        Foswiki::Func::writeDebug(
+          "    _isAlreadyMapped: aWikiName: $aWikiname") if $this->{Saml}{debug};
+        #if ( $aWikiname eq $loginname ) {
+        #    $is_mapped = 1;
+        #}
+        $is_mapped = $aWikiname ne $loginname;
         Foswiki::Func::writeDebug(
           "    _isAlreadyMapped: $loginname InMapped: $is_mapped") if $this->{Saml}{debug};
         return $is_mapped;
