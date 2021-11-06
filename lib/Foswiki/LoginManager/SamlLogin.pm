@@ -61,6 +61,10 @@ sub new {
   undef $this->{Saml}{issuer};
   undef $this->{Saml}{provider_name};
   undef $this->{Saml}{saml_request_id};
+
+  Foswiki::registerTagHandler( 'LOGOUT',           \&_LOGOUT );
+  Foswiki::registerTagHandler( 'LOGOUTURL',        \&_LOGOUTURL );
+
   return $this;
 }
 
@@ -545,6 +549,35 @@ sub samlCallback {
     $query->method($origmethod);
     $session->redirect( $origurl, 1 );
     return;
+}
+
+=begin TML
+
+---++ ObjectMethod _LOGOUTURL ($thisl)
+
+
+=cut
+
+sub _LOGOUTURL {
+    my ( $session, $params, $topic, $web ) = @_;
+    my $this = $session->getLoginManager();
+
+    return $this->logoutUrl(@_);
+
+}
+
+sub _LOGOUT {
+    my ( $session, $params, $topic, $web ) = @_;
+    my $this = $session->getLoginManager();
+
+    return '' unless $session->inContext('authenticated');
+
+    my $url = _LOGOUTURL(@_);
+    if ($url) {
+        my $text = $session->templates->expandTemplate('LOG_OUT');
+        return CGI::a( { href => $url }, $text );
+    }
+    return '';
 }
 
 =begin TML
