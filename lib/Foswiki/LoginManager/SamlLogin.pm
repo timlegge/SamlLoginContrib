@@ -635,6 +635,12 @@ sub logoutUrl {
     my $sessionindex = $this->getSessionValue('saml_session_index');
     Foswiki::Func::writeDebug("    SessionIndex: $sessionindex") if $this->{Saml}{ debug };
 
+    if ( $sessionindex eq '' ) {
+        Foswiki::Func::writeDebug("    SessionIndex is not set defaulting to LoginManager _LOGOUTURL")
+            if $this->{Saml}{ debug };
+        return Foswiki::LoginManager::_LOGOUTURL(@_);
+    }
+
     my $idp = Net::SAML2::IdP->new_from_url(
         url     => $this->{Saml}{ metadata},
         cacert  => $this->{Saml}{ cacert },
