@@ -24,7 +24,6 @@ $Foswiki::cfg{Saml}{issuer} = 'https://foswiki.local';
 
 # **STRING LABEL="Service Provider Name"**
 # Service Provider (Application) name
-# Bug in Net::SAML2 prevents this from being sent
 $Foswiki::cfg{Saml}{provider_name} = 'Foswiki';
 
 # **STRING LABEL="Request Signing Certificate File"**

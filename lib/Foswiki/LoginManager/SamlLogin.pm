@@ -28,7 +28,7 @@ TemplateLogin manager.
 
 use LWP;
 use LWP::UserAgent;
-use Net::SAML2;
+use Net::SAML2 0.44;
 use Data::Dumper;
 use Net::SAML2::XML::Sig;
 use MIME::Base64 qw/ decode_base64 /;
@@ -60,7 +60,9 @@ sub new {
   undef $this->{Saml}{sp_signing_cert};
   undef $this->{Saml}{issuer};
   undef $this->{Saml}{provider_name};
-  undef $this->{Saml}{saml_request_id};
+  undef $this->{Saml}{sls_force_lcase_url_encoding};
+  undef $this->{Saml}{sls_double_encoded_response};
+
 
   Foswiki::registerTagHandler( 'LOGOUT',           \&_LOGOUT );
   Foswiki::registerTagHandler( 'LOGOUTURL',        \&_LOGOUTURL );
@@ -86,6 +88,8 @@ sub loadSamlData {
     $this->{Saml}{sp_signing_cert}    = $Foswiki::cfg{Saml}{sp_signing_cert};
     $this->{Saml}{issuer}             = $Foswiki::cfg{Saml}{issuer};
     $this->{Saml}{provider_name}      = $Foswiki::cfg{Saml}{provider_name};
+    $this->{Saml}{sls_force_lcase_url_encoding} = $Foswiki::cfg{Saml}{sls_force_lcase_url_encoding} || '0';
+    $this->{Saml}{sls_double_encoded_response}  = $Foswiki::cfg{Saml}{sls_double_encoded_response} || '0';
 
     if ( $this->{Saml}{debug} ) {
         Foswiki::Func::writeDebug("loadSamlData:");
@@ -404,8 +408,8 @@ sub samlCallback {
         my $idp = Net::SAML2::IdP->new_from_url(
             url     => $this->{Saml}{metadata},
             cacert  => $this->{Saml}{cacert},
-            sls_force_lcase_url_encoding => '0',
-            sls_double_encoded_response => '1'
+            sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
+            sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
         );
 
         my $redirect = Net::SAML2::Binding::Redirect->new(
@@ -413,8 +417,8 @@ sub samlCallback {
             key => $this->{Saml}{sp_signing_key},
             cert => $idp->cert('signing'),
             param => 'SAMLResponse',
-            sls_force_lcase_url_encoding => '0',
-            sls_double_encoded_response => '1',
+            sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
+            sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
         );
 
         my ($response, $relaystate) = $redirect->verify($query->{uri});
