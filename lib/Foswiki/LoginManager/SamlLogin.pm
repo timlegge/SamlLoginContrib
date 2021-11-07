@@ -89,6 +89,7 @@ sub loadSamlData {
 
     if ( $this->{Saml}{debug} ) {
         Foswiki::Func::writeDebug("loadSamlData:");
+        Foswiki::Func::writeDebug("    Net::SAML2 version $Net::SAML2::VERSION");
         Foswiki::Func::writeDebug("    {Saml}{debug}:           $this->{Saml}{debug}");
         Foswiki::Func::writeDebug("    {Saml}{metadata}:        $this->{Saml}{metadata}");
         Foswiki::Func::writeDebug("    {Saml}{cacert}:          $this->{Saml}{cacert}");
@@ -237,6 +238,9 @@ sub _isAlreadyMapped {
     my $loginname   = shift;
     my $wikiname    = shift;
 
+    Foswiki::Func::writeDebug(
+        "    _isAlreadyMapped:") if $this->{Saml}{debug};
+
     # Currently, there doesn't seem to be a universal way to check
     # whether a mapping between login name and username is already
     # in place.
@@ -244,15 +248,12 @@ sub _isAlreadyMapped {
     if ($Foswiki::cfg{Register}{AllowLoginName}) {
         my $aWikiname = Foswiki::Func::userToWikiName($loginname, 1);
         Foswiki::Func::writeDebug(
-          "    _isAlreadyMapped: logininame: $loginname") if $this->{Saml}{debug};
+          "        loginname: $loginname") if $this->{Saml}{debug};
         Foswiki::Func::writeDebug(
-          "    _isAlreadyMapped: aWikiName: $aWikiname") if $this->{Saml}{debug};
-        #if ( $aWikiname eq $loginname ) {
-        #    $is_mapped = 1;
-        #}
+          "        aWikiName: $aWikiname") if $this->{Saml}{debug};
         $is_mapped = $aWikiname ne $loginname;
         Foswiki::Func::writeDebug(
-          "    _isAlreadyMapped: $loginname InMapped: $is_mapped") if $this->{Saml}{debug};
+          "        is_mapped: ",  $is_mapped ? 'true' : 'false') if $this->{Saml}{debug};
         return $is_mapped;
     } else {
         # It's important to return 0 here so that if mapping is turned
@@ -281,11 +282,19 @@ sub mapUser {
     my $attributes   = shift;
     my $nameid       = shift;
 
+    Foswiki::Func::writeDebug(
+          "    mapUser:") if $this->{Saml}{debug};
+
     my $loginname = undef;
     my $candidate = $this->buildWikiName($attributes);
 
+    Foswiki::Func::writeDebug(
+          "        candidate: $candidate") if $this->{Saml}{debug};
+
     if ($Foswiki::cfg{Register}{AllowLoginName}) {
         $loginname = $this->extractLoginname($nameid);
+        Foswiki::Func::writeDebug(
+                    "        loginname: $loginname") if $this->{Saml}{debug};
     }
     else {
         # SMELL: Turning off AllowLoginName for Open ID is a really bad idea. Should
@@ -296,8 +305,11 @@ sub mapUser {
     my $email = lc($this->extractEmail($attributes));
 
     Foswiki::Func::writeDebug(
-          "    mapUser: $email") if $this->{Saml}{debug};
+          "        email: $email") if $this->{Saml}{debug};
+
     if (!$this->_isAlreadyMapped($session, $loginname, $candidate)) {
+        Foswiki::Func::writeDebug(
+            "        Login not mapped") if $this->{Saml}{debug};
         my $wikiname = undef;
         my $orig_candidate = $candidate;
         my $counter = 1;
@@ -307,11 +319,12 @@ sub mapUser {
             if (scalar @$users == 0) {
                 $wikiname = $this->matchWikiUser($candidate, $email);
                 Foswiki::Func::writeDebug(
-                    "    matchWikiUser for $candidate produces $wikiname") if $this->{Saml}{debug};
+                    "            candidate: $candidate produces wikiname: $wikiname")
+                        if $this->{Saml}{debug};
                 if (defined $wikiname) {
                     my $cuid = $session->{'users'}->addUser($loginname, $wikiname, undef, [$email]);
                     Foswiki::Func::writeDebug(
-                        "    Mapped user $cuid ($email) to $wikiname") if $this->{Saml}{debug};
+                        "            cuid: $cuid (email: $email) to wikiname: $wikiname") if $this->{Saml}{debug};
                     return $cuid;
                 }
             }
@@ -322,7 +335,7 @@ sub mapUser {
         # Mapping exists already, so return the canonical user id
         my $cuid = $session->{users}->getCanonicalUserID($loginname);
         Foswiki::Func::writeDebug(
-            "Saml Use preexisting mapping for $loginname") if $this->{Saml}{debug};
+            "            Saml Use preexisting mapping for $loginname") if $this->{Saml}{debug};
         return $cuid;
     }
 }
@@ -350,9 +363,10 @@ sub redirectToProvider {
 
     if ( $this->{Saml}{ debug } ) {
         Foswiki::Func::writeDebug("    redirectToProvider set session values");
+        Foswiki::Func::writeDebug("        foswiki_origin: $origin");
         Foswiki::Func::writeDebug("        topicName: $topic");
         Foswiki::Func::writeDebug("        webName:   $web");
-        Foswiki::Func::writeDebug("        response:  $response");
+        Foswiki::Func::writeDebug("        response:",  Dumper($response));
     }
 
     Foswiki::Func::setSessionValue('saml_origin', $origin);
@@ -377,6 +391,9 @@ sub samlCallback {
     my $origin  = $this->getAndClearSessionValue('saml_origin');
     my $web     = $this->getAndClearSessionValue('saml_web');
     my $topic   = $this->getAndClearSessionValue('saml_topic');
+
+    Foswiki::Func::writeDebug(
+        "    samlCallback") if $this->{Saml}{ debug };
 
     # Store now as is it used in several places in the code below
     my ( $origurl, $origmethod, $origaction ) =
@@ -444,16 +461,16 @@ sub samlCallback {
 
         if ($ret) {
         Foswiki::Func::writeDebug(
-        "    SAMLResponse handled successfully by POST") if $this->{Saml}{ debug };
+        "        SAMLResponse handled successfully by POST") if $this->{Saml}{ debug };
 
         my $assertion = Net::SAML2::Protocol::Assertion->new_from_xml(
             xml => decode_base64($saml_response)
         );
 
         if ( $this->{Saml}{ debug } ){
-            Foswiki::Func::writeDebug("    Assertion extracted from SAMLResponse XML");
-            Foswiki::Func::writeDebug("        InResponseTo: $assertion->{ in_response_to }");
-            Foswiki::Func::writeDebug("        SessionIndex: $assertion->{ session }");
+            Foswiki::Func::writeDebug("        Assertion extracted from SAMLResponse XML");
+            Foswiki::Func::writeDebug("            InResponseTo: $assertion->{ in_response_to }");
+            Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
         }
 =pod
         Verify that the response was related to the request
@@ -486,15 +503,17 @@ sub samlCallback {
                 # output the attributes and values that are available in the response
                 keys %{$assertion->attributes};
                 Foswiki::Func::writeDebug(
-                    "    Assertion Attributes from SAMLResponse");
+                    "            Assertion Attributes from SAMLResponse");
 
                 while(my($k, $v) = each %{$assertion->attributes}) {
                     my $val = %$v[0];
-                    Foswiki::Func::writeDebug("        $k: $val");
+                    Foswiki::Func::writeDebug("                $k: $val");
                 }
             }
 
-            Foswiki::Func::writeDebug("Assertion NameID $assertion->nameid");
+            Foswiki::Func::writeDebug("            Assertion NameID $assertion->nameid")
+                if $this->{Saml}{ debug };
+
             my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
 
             # SMELL: This isn't part of the public API!
@@ -541,7 +560,7 @@ sub samlCallback {
             # Restore the method used on origUrl so if it was a GET, we
             # get another GET.
             $query->method($origmethod);
-            Foswiki::Func::writeDebug("    Redirect: $origurl") if $this->{Saml}{ debug };
+            Foswiki::Func::writeDebug("            Redirect: $origurl") if $this->{Saml}{ debug };
             $session->redirect( $origurl, 1 );
             return;
         }
@@ -679,11 +698,7 @@ sub login {
 
     $this->loadSamlData();
 
-    Foswiki::Func::writeDebug("Saml: login:") if $this->{Saml}{ debug };
-    if ($this->{Saml}{ debug }) {
-        my $netsamlver = $Net::SAML2::VERSION;
-        Foswiki::Func::writeDebug("Saml: Net::SAML2 version $netsamlver");
-    }
+    Foswiki::Func::writeDebug("SamlLoginContrib: login():") if $this->{Saml}{ debug };
 
     my $saml_response       = $query->param('SAMLResponse');
     my $provider            = $query->param('provider');
@@ -711,7 +726,7 @@ sub login {
         );
 
         Foswiki::Func::writeDebug("    Net::SAML2::IdP created from url") if $this->{Saml}{ debug };
-        Foswiki::Func::writeDebug("        Destination: $idp->{ entityid }") if $this->{Saml}{ debug };
+        Foswiki::Func::writeDebug("        Entity ID: $idp->{ entityid }") if $this->{Saml}{ debug };
 
         # Important not to return as XML here as we need to track the id for later verification
         my $authnreq = Net::SAML2::Protocol::AuthnRequest->new(
