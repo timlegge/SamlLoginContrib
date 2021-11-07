@@ -74,6 +74,9 @@ SamlLoginContrib aims to eventually support any SAML2 standards compliant Identi
 | Jump | %GREEN%Works%ENDCOLOR% |
 | OneLogin | %GREEN%Works%ENDCOLOR% |
 | Keycloak | %GREEN%Works%ENDCOLOR% |
+| Mircosoft ADFS | %GREEN%Works%ENDCOLOR% |
+| Auth0 | (requires Net::SAML2 >=0.39) %GREEN%Works%ENDCOLOR% |
+| PingIdentity | (requires Net::SAML2 >=0.44) %GREEN%Works%ENDCOLOR% |
 
 ---++ Bugs, Shortcomings, Future work
 
@@ -109,7 +112,7 @@ The SAML Service Provider (SP) implementation means that no usernames or passwor
 |  Dependencies: |
 
 | *Name* | *Version* | *Description* |
-| NET:SAML2  | | Required  |
+| NET:SAML2  | 0.44 | Required  |
 | LWP::UserAgent  | &gt;=6.15  | Required for getting the Metadata  |
 | Crypt::JWT  | &gt;=0.010  | Required for JWT signature verification  |
 | Crypt::Random  | | Required for cryptographically secure nonces  |
