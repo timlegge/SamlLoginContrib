@@ -378,7 +378,7 @@ sub redirectToProvider {
     Foswiki::Func::setSessionValue('saml_web', $web);
     Foswiki::Func::setSessionValue('saml_topic', $topic);
 
-    $response->redirect($request_url);
+    $response->redirect($request_url . '&RelayState=' . $origin);
 }
 
 =pod
@@ -407,7 +407,9 @@ sub samlCallback {
     if ($query->{method} eq 'GET') {
         Foswiki::Func::writeDebug(
             "        HTTP-REDIRECT - GET") if $this->{Saml}{ debug };
+
         my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
+
         my $idp = Net::SAML2::IdP->new_from_url(
             url     => $this->{Saml}{metadata},
             cacert  => $this->{Saml}{cacert},
@@ -719,6 +721,7 @@ sub login {
     Foswiki::Func::writeDebug("SamlLoginContrib: login():") if $this->{Saml}{ debug };
 
     my $saml_response       = $query->param('SAMLResponse');
+    my $relaystate          = $query->param('RelayState');
     my $provider            = $query->param('provider');
 
     # Process the SAMLResponse
@@ -761,6 +764,7 @@ sub login {
         # Store the request's id for later verification
         Foswiki::Func::setSessionValue('saml_request_id', $authnreq->id);
 
+        # Currently only supports HTTP-Redirect
         my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $this->{Saml}{ sp_signing_key },
               cert => $this->{Saml}{ sp_signing_cert },
