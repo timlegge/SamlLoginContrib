@@ -723,6 +723,7 @@ sub login {
     my $saml_response       = $query->param('SAMLResponse');
     my $relaystate          = $query->param('RelayState');
     my $provider            = $query->param('provider');
+    my $saml                = $query->param('saml');
 
     # Process the SAMLResponse
     if (defined $saml_response) {
@@ -738,6 +739,16 @@ sub login {
     elsif ((defined $provider) && ($provider ne 'native')) {
         Foswiki::Func::writeDebug(
             "    provider requested without native parameter") if $this->{Saml}{ debug };
+        return;
+    }
+    elsif ((defined $saml) && ($saml eq 'metadata')) {
+        Foswiki::Func::writeDebug(
+            "    request for metadata file") if $this->{Saml}{ debug };
+        $session->{response}->header(
+                                -type => 'application/octet-stream',
+                                "Content-Disposition" => 'inline; filename="metadata.xml"',
+                                );
+        $session->{response}->body($this->getMetadata());
         return;
     }
     else {
@@ -780,4 +791,48 @@ sub login {
 
         $this->redirectToProvider($url, $query, $session);
     }
+}
+
+=pod
+---++ ObjectMethod getMetadata()
+This is called directly by login() when login() detects a request
+for Foswiki's metadata.  This will generate a metadata.xml file for
+download.
+=cut
+
+sub getMetadata {
+    my $this = shift;
+
+    $this->loadSamlData();
+
+    my $org_name            = $Foswiki::cfg{Saml}{org_name} || 'Foswiki';
+    my $org_display_name    = $Foswiki::cfg{Saml}{org_display_name} || 'Foswiki Saml Application';
+    my $org_contact         = $Foswiki::cfg{Saml}{org_contact} || $Foswiki::cfg{WebMasterEmail};
+    my $error_url           = $Foswiki::cfg{Saml}{error_url};
+    my $slo_url_soap        = $Foswiki::cfg{Saml}{slo_url_soap} || '';
+    my $slo_url_redirect    = $Foswiki::cfg{Saml}{slo_url_redirect};
+    my $slo_url_post        = $Foswiki::cfg{Saml}{slo_url_post};
+    my $acs_url_post        = $Foswiki::cfg{Saml}{acs_url_post};
+    my $acs_url_artifact    = $Foswiki::cfg{Saml}{acs_url_artifact};
+    my $url                 = $Foswiki::cfg{Saml}{url} || $Foswiki::cfg{Saml}{DefaultUrlHost};
+
+   my $sp = Net::SAML2::SP->new(
+        id     => $this->{Saml}{issuer},
+        url    => $url,
+        cert   => $this->{Saml}{sp_signing_cert},
+        key    => $this->{Saml}{sp_signing_key},
+        cacert => $this->{Saml}{cacert},
+        slo_url_soap => $slo_url_soap,
+        slo_url_redirect => $slo_url_redirect,
+        slo_url_post => $slo_url_post,
+        acs_url_post => $acs_url_post,
+        acs_url_artifact => $acs_url_artifact,
+        error_url => $error_url,
+
+        org_name     => $org_name,
+        org_display_name => $org_display_name,
+        org_contact  => $org_contact,
+    );
+
+    return $sp->metadata;
 }
