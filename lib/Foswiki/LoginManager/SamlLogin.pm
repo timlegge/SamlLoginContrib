@@ -803,8 +803,6 @@ download.
 sub getMetadata {
     my $this = shift;
 
-    $this->loadSamlData();
-
     my $org_name            = $Foswiki::cfg{Saml}{org_name} || 'Foswiki';
     my $org_display_name    = $Foswiki::cfg{Saml}{org_display_name} || 'Foswiki Saml Application';
     my $org_contact         = $Foswiki::cfg{Saml}{org_contact} || $Foswiki::cfg{WebMasterEmail};
@@ -817,11 +815,11 @@ sub getMetadata {
     my $url                 = $Foswiki::cfg{Saml}{url} || $Foswiki::cfg{Saml}{DefaultUrlHost};
 
    my $sp = Net::SAML2::SP->new(
-        id     => $this->{Saml}{issuer},
+        id     => $Foswiki::cfg{Saml}{issuer},
         url    => $url,
-        cert   => $this->{Saml}{sp_signing_cert},
-        key    => $this->{Saml}{sp_signing_key},
-        cacert => $this->{Saml}{cacert},
+        cert   => $Foswiki::cfg{Saml}{sp_signing_cert},
+        key    => $Foswiki::cfg{Saml}{sp_signing_key},
+        cacert => $Foswiki::cfg{Saml}{cacert},
         slo_url_soap => $slo_url_soap,
         slo_url_redirect => $slo_url_redirect,
         slo_url_post => $slo_url_post,
