@@ -116,34 +116,34 @@ $Foswiki::cfg{Saml}{org_display_name} = 'Foswiki Organization';
 # **STRING LABEL="Service Provider URL"**
 # Specifies a URL for the Identity Provider to use as the main URL for the
 # Foswiki INstallation. Used only if you are generating metadata.xml automatically
-$Foswiki::cfg{Saml}{url} = 'https://docker-foswiki.local';
+$Foswiki::cfg{Saml}{url} = 'https://localhost';
 
-# **STRING LABEL="Error URL"**
+# **STRING LABEL="Error URL" EXPERT**
 # Specifies a URL for the Identity Provider to use in the case of an error.
 # Used only if you are generating metadata.xml automatically
-$Foswiki::cfg{Saml}{error_url} = 'https://docker-foswiki.local/bin/login?saml=error';
+$Foswiki::cfg{Saml}{error_url} = '/bin/login?saml=error';
 
-# **STRING LABEL="Single Logout SOAP URL"**
+# **STRING LABEL="Single Logout SOAP URL" EXPERT**
 # Specifies a URL for the Identity Provider to use as the SOAP
 # Single Logout end point. Used only if you are generating
 # metadata.xml automatically
-$Foswiki::cfg{Saml}{slo_url_soap} = 'https://docker-foswiki.local/bin/login?saml=slo_soap';
+$Foswiki::cfg{Saml}{slo_url_soap} = '/bin/login?saml=slo_soap';
 
-# **STRING LABEL="Single Logout Redirect URL"**
+# **STRING LABEL="Single Logout Redirect URL" EXPERT**
 # Specifies a URL for the Identity Provider to use as the Redirect
 # Single Logout end point. Used only if you are generating
 # metadata.xml automatically
-$Foswiki::cfg{Saml}{slo_url_redirect} = 'https://docker-foswiki.local/bin/login?saml=slo_redirect';
+$Foswiki::cfg{Saml}{slo_url_redirect} = '/bin/login?saml=slo_redirect';
 
-# **STRING LABEL="Single Logout POST URL"**
+# **STRING LABEL="Single Logout POST URL" EXPERT**
 # Specifies a URL for the Identity Provider to use as the POST
 # Single Logout end point. Used only if you are generating
 # metadata.xml automatically
-$Foswiki::cfg{Saml}{slo_url_post} = 'https://docker-foswiki.local/bin/login?saml=slo_post';
+$Foswiki::cfg{Saml}{slo_url_post} = '/bin/login?saml=slo_post';
 
-# **STRING LABEL="Authentication Consumer Service (ACS) POST URL"**
+# **STRING LABEL="Authentication Consumer Service (ACS) POST URL" EXPERT**
 # Specifies a URL for the Identity Provider to use as the POST
 # ACS end point. Used only if you are generating metadata.xml automatically
-$Foswiki::cfg{Saml}{acs_url_post} = 'https://docker-foswiki.local/bin/login?saml=acs';
+$Foswiki::cfg{Saml}{acs_url_post} = '/bin/login?saml=acs';
 
 1;
