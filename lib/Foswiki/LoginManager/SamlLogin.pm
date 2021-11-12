@@ -378,7 +378,80 @@ sub redirectToProvider {
     Foswiki::Func::setSessionValue('saml_web', $web);
     Foswiki::Func::setSessionValue('saml_topic', $topic);
 
-    $response->redirect($request_url . '&RelayState=' . $origin);
+    $response->redirect($request_url);
+}
+
+=pod
+---++ ObjectMethod samlLogout($saml_response, $query, $session)
+This is called directly by login() when login() detects a successful
+Logout response from the Saml provider. When we get here, we have SAML
+response that needs to be decoded.
+=cut
+
+sub samlLogoutResponse
+{
+    my $this            = shift;
+    my $saml_response   = shift;
+    my $query           = shift;
+    my $session         = shift;
+
+    Foswiki::Func::writeDebug(
+        "        HTTP-REDIRECT - GET") if $this->{Saml}{ debug };
+
+    my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
+
+    my $idp = Net::SAML2::IdP->new_from_url(
+        url     => $this->{Saml}{metadata},
+        cacert  => $this->{Saml}{cacert},
+        sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
+        sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
+    );
+
+    my $redirect = Net::SAML2::Binding::Redirect->new(
+        url   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
+        key => $this->{Saml}{sp_signing_key},
+        cert => $idp->cert('signing'),
+        param => 'SAMLResponse',
+        sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
+        sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
+    );
+
+    # Neet to delete the 'saml=logout' from the URI in Foswiki::Request
+    # in order fo the redirect information to be properly verified via
+    # Net::SAML2 unfortunately the delete function does not affect the uri
+    # this is possibly a bug in Net::SAML2
+    $query->delete('saml');
+    my $uri = $query->{uri};
+    $uri =~ s/saml=\w+&//;
+    Foswiki::Func::writeDebug(
+        "        URI: - $uri") if $this->{Saml}{ debug };
+    my ($response, $relaystate) = $redirect->verify($uri);
+
+    if ($response) {
+        my $logout = Net::SAML2::Protocol::LogoutResponse->new_from_xml(
+                        xml => $response
+        );
+
+        if ($logout->status eq 'urn:oasis:names:tc:SAML:2.0:status:Success') {
+            $this->{_cgisession}->delete();
+            $this->{_cgisession}->flush();
+            $this->{_cgisession} = undef;
+            $this->_delSessionCookieFromResponse();
+
+            my $authUser = $this->getUser($this);
+            my $defaultUser = $Foswiki::cfg{DefaultUserLogin};
+            $authUser = $this->redirectToLoggedOutUrl( $authUser, $defaultUser );
+            $session->{request}->delete('logout');
+
+            Foswiki::Func::writeDebug(
+                "        Logout Success Status - $logout->{issuer}") if $this->{Saml}{ debug };
+        }
+    }
+    else {
+        Foswiki::Func::writeDebug(
+            "        Logout Failed Status") if $this->{Saml}{ debug };
+        return "<html><pre>Bad Logout Response</pre></html>";
+    }
 }
 
 =pod
@@ -406,56 +479,10 @@ sub samlCallback {
 
     if ($query->{method} eq 'GET') {
         Foswiki::Func::writeDebug(
-            "        HTTP-REDIRECT - GET") if $this->{Saml}{ debug };
-
-        my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
-
-        my $idp = Net::SAML2::IdP->new_from_url(
-            url     => $this->{Saml}{metadata},
-            cacert  => $this->{Saml}{cacert},
-            sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
-            sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
-        );
-
-        my $redirect = Net::SAML2::Binding::Redirect->new(
-            url   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
-            key => $this->{Saml}{sp_signing_key},
-            cert => $idp->cert('signing'),
-            param => 'SAMLResponse',
-            sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
-            sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
-        );
-
-        my ($response, $relaystate) = $redirect->verify($query->{uri});
-
-        if ($response) {
-            my $logout = Net::SAML2::Protocol::LogoutResponse->new_from_xml(
-                            xml => $response
-            );
-
-            if ($logout->status eq 'urn:oasis:names:tc:SAML:2.0:status:Success') {
-                $this->{_cgisession}->delete();
-                $this->{_cgisession}->flush();
-                $this->{_cgisession} = undef;
-                $this->_delSessionCookieFromResponse();
-
-                my $authUser = $this->getUser($this);
-                my $defaultUser = $Foswiki::cfg{DefaultUserLogin};
-                $authUser = $this->redirectToLoggedOutUrl( $authUser, $defaultUser );
-                $session->{request}->delete('logout');
-
-                Foswiki::Func::writeDebug(
-                    "        Logout Success Status - $logout->{issuer}") if $this->{Saml}{ debug };
-            }
-        }
-        else {
-            Foswiki::Func::writeDebug(
-                "        Logout Failed Status") if $this->{Saml}{ debug };
-            return "<html><pre>Bad Logout Response</pre></html>";
-        }
-#    redirect $relaystate || '/', 302;
-#    return "Redirected\n";
-
+            "        HTTP-GET") if $this->{Saml}{ debug };
+        Foswiki::Func::writeDebug("    SAML Logout received") if $this->{Saml}{ debug };
+        $this->samlLogoutResponse($saml_response, $query, $session);
+        return;
     }
     else {
         Foswiki::Func::writeDebug(
@@ -726,9 +753,13 @@ sub login {
     my $saml                = $query->param('saml');
 
     # Process the SAMLResponse
-    if (defined $saml_response) {
+    if ((defined $saml_response) || (($saml eq 'acs') && ( defined $saml_response ) ) ) {
         Foswiki::Func::writeDebug("    SAMLResponse received") if $this->{Saml}{ debug };
         $this->samlCallback($saml_response, $query, $session);
+    }
+    elsif ( ($saml eq 'slo_logout') && ( defined $saml_response ) ) {
+        Foswiki::Func::writeDebug("    SAML Logout received") if $this->{Saml}{ debug };
+        $this->samlLogoutResponse($saml_response, $query, $session);
     }
     elsif ((defined $provider) && ($provider eq 'native')) {
         Foswiki::Func::writeDebug("    native login requested") if $this->{Saml}{ debug };
@@ -785,7 +816,12 @@ sub login {
 
         Foswiki::Func::writeDebug("    Net::SAML2::Binding::Redirect created") if $this->{Saml}{ debug };
 
-        my $url = $redirect->sign($authnreq->as_xml);
+        my $origin      = $query->param('foswiki_origin');
+
+        # Avoid accidental passthrough
+        $query->delete('foswiki_origin');
+
+        my $url = $redirect->sign($authnreq->as_xml , $origin);
 
         Foswiki::Func::writeDebug("    $url") if $this->{Saml}{ debug };
 
