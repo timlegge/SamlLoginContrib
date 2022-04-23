@@ -62,6 +62,7 @@ sub new {
   undef $this->{Saml}{provider_name};
   undef $this->{Saml}{sls_force_lcase_url_encoding};
   undef $this->{Saml}{sls_double_encoded_response};
+  undef $this->{Saml}{SupportSLO};
 
 
   Foswiki::registerTagHandler( 'LOGOUT',           \&_LOGOUT );
@@ -91,6 +92,7 @@ sub loadSamlData {
     $this->{Saml}{provider_name}      = $Foswiki::cfg{Saml}{provider_name};
     $this->{Saml}{sls_force_lcase_url_encoding} = $Foswiki::cfg{Saml}{sls_force_lcase_url_encoding} || '0';
     $this->{Saml}{sls_double_encoded_response}  = $Foswiki::cfg{Saml}{sls_double_encoded_response} || '0';
+    $this->{Saml}{SupportSLO}         = $Foswiki::cfg{Saml}{SupportSLO} || '0';
 
     if ( $this->{Saml}{debug} ) {
         Foswiki::Func::writeDebug("loadSamlData:");
@@ -102,6 +104,9 @@ sub loadSamlData {
         Foswiki::Func::writeDebug("    {Saml}{sp_signing_cert}: $this->{Saml}{sp_signing_cert}");
         Foswiki::Func::writeDebug("    {Saml}{issuer}:          $this->{Saml}{issuer}");
         Foswiki::Func::writeDebug("    {Saml}{provider_name}:   $this->{Saml}{provider_name}");
+        Foswiki::Func::writeDebug("    {Saml}{sls_force_lcase_url_encoding}:   $this->{Saml}{sls_force_lcase_url_encoding}");
+        Foswiki::Func::writeDebug("    {Saml}{sls_double_encoded_response}:   $this->{Saml}{sls_double_encoded_response}");
+        Foswiki::Func::writeDebug("    {Saml}{SupportSLO}:   $this->{Saml}{SupportSLO}");
     }
 }
 
@@ -113,6 +118,22 @@ sub getAndClearSessionValue {
     Foswiki::Func::clearSessionValue($key);
 
     return $value;
+}
+
+# Pack key request parameters into a single value
+# Used for passing meta-information about the request
+# through a URL (without requiring passthrough)
+sub _packRequest {
+    my ( $uri, $method, $action ) = @_;
+    return '' unless $uri;
+    if ( ref($uri) ) {    # first parameter is a $session
+        my $r = $uri->{request};
+        $uri    = $r->uri();
+        $uri    = Foswiki::urlDecode($uri);
+        $method = $r->method() || 'UNDEFINED';
+        $action = $r->action();
+    }
+    return "$method,$action,$uri";
 }
 
 =pod
@@ -357,24 +378,17 @@ sub redirectToProvider {
     my $query       = shift;
     my $session     = shift;
 
-    my $origin      = $query->param('foswiki_origin');
-
-    # Avoid accidental passthrough
-    $query->delete('foswiki_origin');
-
     my $topic       = $session->{topicName};
     my $web         = $session->{webName};
     my $response    = $session->{response};
 
     if ( $this->{Saml}{ debug } ) {
         Foswiki::Func::writeDebug("    redirectToProvider set session values");
-        Foswiki::Func::writeDebug("        foswiki_origin: $origin");
         Foswiki::Func::writeDebug("        topicName: $topic");
         Foswiki::Func::writeDebug("        webName:   $web");
-        Foswiki::Func::writeDebug("        response:",  Dumper($response));
+        Foswiki::Func::writeDebug("        redirecting to:   $request_url");
     }
 
-    Foswiki::Func::setSessionValue('saml_origin', $origin);
     Foswiki::Func::setSessionValue('saml_web', $web);
     Foswiki::Func::setSessionValue('saml_topic', $topic);
 
@@ -394,55 +408,128 @@ sub samlLogoutResponse
     my $saml_response   = shift;
     my $query           = shift;
     my $session         = shift;
+    my $type            = shift;
+    my $relaystate      = shift;
 
     Foswiki::Func::writeDebug(
-        "        HTTP-REDIRECT - GET") if $this->{Saml}{ debug };
+        "        query method - $type") if $this->{Saml}{ debug };
 
-    my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
+    my ( $origurl, $origmethod, $origaction ) =
+        Foswiki::LoginManager::TemplateLogin::_unpackRequest($relaystate);
+
+    if ( $this->{Saml}{ debug } ) {
+        my $text =  "\n        RelayState   : $relaystate\n" .
+                    "            origurl    : $origurl\n" .
+                    "            origmethod : $origmethod\n" .
+                    "            origaction : $origaction";
+        Foswiki::Func::writeDebug(
+            "$text");
+    }
 
     my $idp = Net::SAML2::IdP->new_from_url(
-        url     => $this->{Saml}{metadata},
-        cacert  => $this->{Saml}{cacert},
-        sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
-        sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
+        url                             => $this->{Saml}{metadata},
+        cacert                          => $this->{Saml}{cacert},
+        sls_force_lcase_url_encoding    => $this->{Saml}{sls_force_lcase_url_encoding},
+        sls_double_encoded_response     => $this->{Saml}{sls_double_encoded_response}
     );
 
-    my $redirect = Net::SAML2::Binding::Redirect->new(
-        url   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
-        key => $this->{Saml}{sp_signing_key},
-        cert => $idp->cert('signing'),
-        param => 'SAMLResponse',
-        sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
-        sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
-    );
+    my $logout;
+    if ($type eq 'GET') {
+        # LogoutResponse was a HTTP-Redirect - GET
+        Foswiki::Func::writeDebug(
+            "        LogoutResponse was a $type") if $this->{Saml}{ debug };
 
-    # Neet to delete the 'saml=logout' from the URI in Foswiki::Request
-    # in order fo the redirect information to be properly verified via
-    # Net::SAML2 unfortunately the delete function does not affect the uri
-    # this is possibly a bug in Net::SAML2
-    $query->delete('saml');
-    my $uri = $query->{uri};
-    $uri =~ s/saml=\w+&//;
-    Foswiki::Func::writeDebug(
-        "        URI: - $uri") if $this->{Saml}{ debug };
-    my ($response, $relaystate) = $redirect->verify($uri);
-
-    if ($response) {
-        my $logout = Net::SAML2::Protocol::LogoutResponse->new_from_xml(
-                        xml => $response
+        my $redirect = Net::SAML2::Binding::Redirect->new(
+            url                             => $idp->slo_url(
+                                                'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
+            key                             => $this->{Saml}{sp_signing_key},
+            cert                            => $idp->{certs}{'signing'},
+            param                           => 'SAMLResponse',
+            sls_force_lcase_url_encoding    => $this->{Saml}{sls_force_lcase_url_encoding},
+            sls_double_encoded_response     => $this->{Saml}{sls_double_encoded_response}
         );
 
-        if ($logout->status eq 'urn:oasis:names:tc:SAML:2.0:status:Success') {
-            $this->{_cgisession}->delete();
-            $this->{_cgisession}->flush();
-            $this->{_cgisession} = undef;
-            $this->_delSessionCookieFromResponse();
+        my $uri = $query->{uri};
+        Foswiki::Func::writeDebug(
+            "        SAMLResponse URI: - $uri") if $this->{Saml}{ debug };
 
-            my $authUser = $this->getUser($this);
-            my $defaultUser = $Foswiki::cfg{DefaultUserLogin};
-            $authUser = $this->redirectToLoggedOutUrl( $authUser, $defaultUser );
-            $session->{request}->delete('logout');
+        my ($response, $relaystate) = $redirect->verify($uri);
 
+        ( $origurl, $origmethod, $origaction ) =
+            Foswiki::LoginManager::TemplateLogin::_unpackRequest($relaystate);
+
+        if ( $this->{Saml}{ debug } ) {
+            my $text =  "\n        RelayState   : $relaystate\n" .
+                        "            origurl    : $origurl\n" .
+                        "            origmethod : $origmethod\n" .
+                        "            origaction : $origaction";
+            Foswiki::Func::writeDebug(
+                "$text");
+        }
+
+        if ($response) {
+            $logout = Net::SAML2::Protocol::LogoutResponse->new_from_xml(
+                 xml => $response
+            );
+            Foswiki::Func::writeDebug(
+                "        Logout Response was properly signed: $response") if $this->{Saml}{ debug };
+        } else {
+            Foswiki::Func::writeDebug(
+                "        LogoutResponse verification failed: $response") if $this->{Saml}{ debug };
+            return $origurl;
+        }
+
+    } else {
+        # LogoutResponse was a HTTP-POST - POST
+        Foswiki::Func::writeDebug(
+            "        LogoutResponse was a $type") if $this->{Saml}{ debug };
+        my $post = Net::SAML2::Binding::POST->new(
+            cacert => $this->{Saml}{cacert},
+        );
+
+        my $response = $post->handle_response(
+            $saml_response,
+        );
+
+        Foswiki::Func::writeDebug(
+            "        saml_response = " . decode_base64($saml_response)) if $this->{Saml}{ debug };
+
+        Foswiki::Func::writeDebug(
+            "        RelayState = $relaystate") if $this->{Saml}{ debug };
+
+        #FIXME check cert
+        if ($response =~ 'verified' ) {
+            $logout = Net::SAML2::Protocol::LogoutResponse->new_from_xml(
+                        xml => decode_base64($saml_response)
+            );
+            Foswiki::Func::writeDebug(
+                "        Logout Response was properly signed: $response") if $this->{Saml}{ debug };
+        }
+        else {
+            # Logout Response was not properly signed
+            Foswiki::Func::writeDebug(
+                "        Logout Response was not properly signed: $response") if $this->{Saml}{ debug };
+            return $origurl;
+        }
+    }
+
+    if ($logout->status eq 'urn:oasis:names:tc:SAML:2.0:status:Success') {
+        my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
+
+        $this->{_cgisession}->delete();
+        $this->{_cgisession}->flush();
+        $this->{_cgisession} = undef;
+        $this->_delSessionCookieFromResponse();
+
+        $session->{request}->delete('logout');
+
+        if ( $this->{Saml}{ debug } ) {
+            my $text =  "\n        RelayState   : $relaystate\n" .
+                        "            origurl    : $origurl\n" .
+                        "            origmethod : $origmethod\n" .
+                        "            origaction : $origaction";
+            Foswiki::Func::writeDebug(
+                "$text");
             Foswiki::Func::writeDebug(
                 "        Logout Success Status - $logout->{issuer}") if $this->{Saml}{ debug };
         }
@@ -450,8 +537,10 @@ sub samlLogoutResponse
     else {
         Foswiki::Func::writeDebug(
             "        Logout Failed Status") if $this->{Saml}{ debug };
-        return "<html><pre>Bad Logout Response</pre></html>";
+        $session->redirect( $origurl, 1 );
+        return $origurl;
     }
+    return $origurl;
 }
 
 =pod
@@ -465,6 +554,7 @@ sub samlCallback {
     my $saml_response   = shift;
     my $query           = shift;
     my $session         = shift;
+    my $relaystate      = shift;
 
     my $origin  = $this->getAndClearSessionValue('saml_origin');
     my $web     = $this->getAndClearSessionValue('saml_web');
@@ -475,21 +565,26 @@ sub samlCallback {
 
     # Store now as is it used in several places in the code below
     my ( $origurl, $origmethod, $origaction ) =
-        Foswiki::LoginManager::TemplateLogin::_unpackRequest($origin);
+        Foswiki::LoginManager::TemplateLogin::_unpackRequest($relaystate);
 
+    # A GET request is not supported for Assertions so is
+    # really only going to be a LogoutResponse
     if ($query->{method} eq 'GET') {
         Foswiki::Func::writeDebug(
             "        HTTP-GET") if $this->{Saml}{ debug };
         Foswiki::Func::writeDebug("    SAML Logout received") if $this->{Saml}{ debug };
-        $this->samlLogoutResponse($saml_response, $query, $session);
+        $origurl = $this->samlLogoutResponse($saml_response, $query, $session, $query->{method}, $relaystate);
+        # Don't show the SAMLReponse in the URL
+        #$query->delete('SAMLResponse');
+        $query->deleteAll;
+
         return;
     }
     else {
+        # This is a the ACS handler to handle the SAML2 Response and Assertion
         Foswiki::Func::writeDebug(
             "        HTTP-POST") if $this->{Saml}{ debug };
 
-        # Don't show the SAMLReponse in the URL
-        $query->delete('SAMLResponse');
         #  Create the POST binding object to get the details from the SALMResponse'
         my $post = Net::SAML2::Binding::POST->new(cacert => $this->{Saml}{cacert});
 
@@ -502,112 +597,114 @@ sub samlCallback {
         );
 
         if ($ret) {
-        Foswiki::Func::writeDebug(
-        "        SAMLResponse handled successfully by POST") if $this->{Saml}{ debug };
+            Foswiki::Func::writeDebug(
+            "        SAMLResponse handled successfully by POST") if $this->{Saml}{ debug };
 
-        my $assertion = Net::SAML2::Protocol::Assertion->new_from_xml(
-            xml => decode_base64($saml_response)
-        );
+            my $assertion = Net::SAML2::Protocol::Assertion->new_from_xml(
+                xml         => decode_base64($saml_response),
+                key_file    => $this->{Saml}{sp_signing_key},
+                cacert      => $this->{Saml}{cacert},
+            );
 
-        if ( $this->{Saml}{ debug } ){
-            Foswiki::Func::writeDebug("        Assertion extracted from SAMLResponse XML");
-            Foswiki::Func::writeDebug("            InResponseTo: $assertion->{ in_response_to }");
-            Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
-        }
-=pod
-        Verify that the response was related to the request
-        the issuer and the id from the Saml Authnreq must be sent to the Assertion->valid()
-        probably a better way to track the id/inresponseto
-=cut
-        my $issuer          = $this->{Saml}{ issuer };
-        my $saml_request_id = $this->getAndClearSessionValue('saml_request_id');
-
-        # $assertion->valid() checks the dates and the audience
-        my $valid = $assertion->valid($issuer, $saml_request_id);
-
-        if (!$valid) {
-            # Always print this in debug as the chances of this occuring is rare
-            Foswiki::Func::writeDebug("        SAML assertion is invalid");
-            Foswiki::Func::writeDebug("            Issuer:       $issuer");
-            Foswiki::Func::writeDebug("            InResponseTo: $saml_request_id");
-            Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
-            Foswiki::Func::writeDebug("            NotBefore:    $assertion->{ not_before }");
-            Foswiki::Func::writeDebug("            NotAfter:     $assertion->{ not_after }");
-
-            #FIXME: Possibly move to a function (used below too!)
-            $query->method($origmethod);
-            $session->redirect( $origurl, 1 );
-            return;
-        }
-        else {
-            # The SAML Assertion is valid
-            if ( $this->{Saml}{debug} == 1 ) {
-                # output the attributes and values that are available in the response
-                keys %{$assertion->attributes};
-                Foswiki::Func::writeDebug(
-                    "            Assertion Attributes from SAMLResponse");
-
-                while(my($k, $v) = each %{$assertion->attributes}) {
-                    my $val = %$v[0];
-                    Foswiki::Func::writeDebug("                $k: $val");
-                }
+            if ( $this->{Saml}{ debug } ){
+                Foswiki::Func::writeDebug("        Assertion extracted from SAMLResponse XML");
+                Foswiki::Func::writeDebug("            InResponseTo: $assertion->{ in_response_to }");
+                Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
             }
+=pod
+            Verify that the response was related to the request
+            the issuer and the id from the Saml Authnreq must be sent to the Assertion->valid()
+            probably a better way to track the id/inresponseto
+=cut
+            my $issuer          = $this->{Saml}{ issuer };
+            my $saml_request_id = $this->getAndClearSessionValue('saml_request_id');
 
-            Foswiki::Func::writeDebug("            Assertion NameID $assertion->nameid")
-                if $this->{Saml}{ debug };
+            # $assertion->valid() checks the dates and the audience
+            my $valid = $assertion->valid($issuer, $saml_request_id);
 
-            my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
+            if (!$valid) {
+                # Always print this in debug as the chances of this occuring is rare
+                Foswiki::Func::writeDebug("        SAML assertion is invalid");
+                Foswiki::Func::writeDebug("            Issuer:       $issuer");
+                Foswiki::Func::writeDebug("            InResponseTo: $saml_request_id");
+                Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
+                Foswiki::Func::writeDebug("            NotBefore:    $assertion->{ not_before }");
+                Foswiki::Func::writeDebug("            NotAfter:     $assertion->{ not_after }");
 
-            # SMELL: This isn't part of the public API!
-            # But Foswiki::Func doesn't provide login name lookup and
-            # wikiname lookup doesn't work yet at that stage (yields the loginname, ironically...)
-            my $wikiname = $session->{users}->getWikiName($cuid);
-            my $loginName = $session->{users}->getLoginName($cuid);
-
-            my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
-            Foswiki::Func::setSessionValue('saml_session_index', $assertion->{ session });
-
-            Foswiki::Func::writeDebug("    Login Name: $loginName") if $this->{Saml}{ debug };
-
-            $this->userLoggedIn($loginName);
-#    $session->inContext('authenticated');
-            $session->logger->log({
-                level    => 'info',
-                action   => 'login',
-                webTopic => $web . '.' . $topic,
-                extra    => "AUTHENTICATION SUCCESS - $loginName ($wikiname) - "
-            });
-
-            if ( !$origurl || $origurl eq $query->url() ) {
-                $origurl = $session->getScriptUrl( 0, 'view', $web, $topic );
+                $query->method($origmethod);
+                Foswiki::Func::writeDebug("            Redirect: $origurl") if $this->{Saml}{ debug };
+                $session->redirect( $origurl, 1 );
+                return;
             }
             else {
-                # Unpack params encoded in the origurl and restore them
-                # to the query. If they were left in the query string they
-                # would be lost if we redirect with passthrough.
-                # First extract the params, ignoring any trailing fragment.
-                if ( $origurl =~ s/\?([^#]*)// ) {
-                    foreach my $pair ( split( /[&;]/, $1 ) ) {
-                        if ( $pair =~ m/(.*?)=(.*)/ ) {
-                            # SMELL: Removed TAINT on $2 because couldn't figure out where it was defined
-                            $query->param( $1, $2 );
-                        }
+                # The SAML Assertion is valid
+                if ( $this->{Saml}{debug} == 1 ) {
+                    # output the attributes and values that are available in the response
+                    keys %{$assertion->attributes};
+                    Foswiki::Func::writeDebug(
+                        "            Assertion Attributes from SAMLResponse");
+
+                    while(my($k, $v) = each %{$assertion->attributes}) {
+                        my $val = %$v[0];
+                        Foswiki::Func::writeDebug("                $k: $val");
                     }
                 }
 
-                # Restore the action too
-                $query->action($origaction) if $origaction;
+                Foswiki::Func::writeDebug("            Assertion NameID $assertion->{nameid}")
+                    if $this->{Saml}{ debug };
+
+                my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
+
+                # SMELL: This isn't part of the public API!
+                # But Foswiki::Func doesn't provide login name lookup and
+                # wikiname lookup doesn't work yet at that stage (yields the loginname, ironically...)
+                my $wikiname = $session->{users}->getWikiName($cuid);
+                my $loginName = $session->{users}->getLoginName($cuid);
+
+                my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
+                Foswiki::Func::setSessionValue('saml_session_index', $assertion->{ session });
+
+                Foswiki::Func::writeDebug("    Login Name: $loginName") if $this->{Saml}{ debug };
+
+                $this->userLoggedIn($loginName);
+                #    $session->inContext('authenticated');
+                $session->logger->log({
+                    level    => 'info',
+                    action   => 'login',
+                    webTopic => $web . '.' . $topic,
+                    extra    => "AUTHENTICATION SUCCESS - $loginName ($wikiname) - "
+                });
+
+                if ( !$origurl || $origurl eq $query->url() ) {
+                    $origurl = $session->getScriptUrl( 0, 'view', $web, $topic );
+                }
+                else {
+                    # Unpack params encoded in the origurl and restore them
+                    # to the query. If they were left in the query string they
+                    # would be lost if we redirect with passthrough.
+                    # First extract the params, ignoring any trailing fragment.
+                    if ( $origurl =~ s/\?([^#]*)// ) {
+                        foreach my $pair ( split( /[&;]/, $1 ) ) {
+                            if ( $pair =~ m/(.*?)=(.*)/ ) {
+                                # SMELL: Removed TAINT on $2 because couldn't
+                                # figure out where it was defined
+                                $query->param( $1, $2 );
+                            }
+                        }
+                    }
+
+                    # Restore the action too
+                    $query->action($origaction) if $origaction;
+                }
+
+                # Restore the method used on origUrl so if it was a GET, we
+                # get another GET.
+                $query->method($origmethod);
+                Foswiki::Func::writeDebug("            Redirect: $origurl") if $this->{Saml}{ debug };
+                $session->redirect( $origurl, 1 );
+                return;
             }
-
-            # Restore the method used on origUrl so if it was a GET, we
-            # get another GET.
-            $query->method($origmethod);
-            Foswiki::Func::writeDebug("            Redirect: $origurl") if $this->{Saml}{ debug };
-            $session->redirect( $origurl, 1 );
-            return;
         }
-    }
-
     }
     # Failed POST handle_response
     # Send user back to original page
@@ -627,7 +724,10 @@ sub _LOGOUTURL {
     my ( $session, $params, $topic, $web ) = @_;
     my $this = $session->getLoginManager();
 
-    return $this->logoutUrl(@_);
+    my $url = $session->getScriptUrl( 0, 'login', undef, undef,
+        'saml' => 'logout') . '&foswiki_origin=' . _packRequest($session);
+
+    return $url;
 
 }
 
@@ -647,6 +747,23 @@ sub _LOGOUT {
 
 =begin TML
 
+---++ ObjectMethod loginUrl () -> $loginUrl
+
+Overrides LoginManager. Content of a login link.
+
+=cut
+
+sub loginUrl {
+    my $this    = shift;
+    my $session = $this->{session};
+    my $topic   = $session->{topicName};
+    my $web     = $session->{webName};
+    return $session->getScriptUrl( 0, 'login', undef, undef,
+        foswiki_origin => _packRequest($session) );
+}
+
+=begin TML
+
 ---++ ObjectMethod logoutUrl () -> $logoutUrl
 
 Overrides LoginManager. Content of a logout link.
@@ -655,11 +772,35 @@ Overrides LoginManager. Content of a logout link.
 
 sub logoutUrl {
     my $this = shift;
-    my ( $session, $params, $topic, $web ) = @_;
+    my ( $session, $relaystate ) = @_;
 
     $this->loadSamlData();
 
-    Foswiki::Func::writeDebug("logoutUrl:") if $this->{Saml}{ debug };
+    if ( ! defined $this->{Saml}{SupportSLO} || ! $this->{Saml}{SupportSLO} ) {
+        Foswiki::Func::writeDebug("    support for SAML Logout is disabled _LOGOUTURL")
+            if $this->{Saml}{ debug };
+        return Foswiki::LoginManager::_LOGOUTURL(@_);
+    }
+
+    my $idp = Net::SAML2::IdP->new_from_url(
+        url     => $this->{Saml}{metadata},
+        cacert  => $this->{Saml}{cacert},
+        sls_force_lcase_url_encoding => $this->{Saml}{sls_force_lcase_url_encoding},
+        sls_double_encoded_response => $this->{Saml}{sls_double_encoded_response}
+    );
+
+    if ( (!defined $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect')) &&
+         (!defined $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST')) ) {
+        Foswiki::Func::writeDebug("    no slo_url defined in Identity provider metadata")
+            if $this->{Saml}{ debug };
+
+        return $session->getScriptUrl(
+            0, 'view',
+            $session->{prefs}->getPreference('BASEWEB'),
+            $session->{prefs}->getPreference('BASETOPIC'),
+            'logout' => 1
+        );
+    }
 
     my $sessionindex = $this->getSessionValue('saml_session_index');
     Foswiki::Func::writeDebug("    SessionIndex: $sessionindex") if $this->{Saml}{ debug };
@@ -688,6 +829,7 @@ sub logoutUrl {
 
     my $logoutreq = $logoutrequest->as_xml;
 
+    Foswiki::Func::writeDebug("    Saml: logouturl logoutreq: ", $logoutreq) if $this->{Saml}{ debug };
     my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $this->{Saml}{ sp_signing_key },
               cert => $this->{Saml}{ sp_signing_cert },
@@ -695,32 +837,19 @@ sub logoutUrl {
               param => 'SAMLRequest',
               url   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
     );
-    my $url = $redirect->sign($logoutreq);
 
+#    my $origin      = $session->{request}->{uri};
+#    my ( $origurl, $origmethod, $origaction ) =
+#        Foswiki::LoginManager::TemplateLogin::_unpackRequest($foswiki_origin);
+
+    Foswiki::Func::writeDebug("=======RelayState============") if $this->{Saml}{ debug };
+    Foswiki::Func::writeDebug("    $relaystate") if $this->{Saml}{ debug };
+    Foswiki::Func::writeDebug("=======RelayState============") if $this->{Saml}{ debug };
+    my $url = $redirect->sign($logoutreq, $relaystate);
     Foswiki::Func::writeDebug("    Saml: logouturl url: ", $url) if $this->{Saml}{ debug };
 
     return $url;
 
-}
-
-=pod
----++ ObjectMethod logout ($thisl)
-
-
-=cut
-
-sub logout {
-    my ( $this, $session, $params, $topic, $web ) = @_;
-
-    return '' unless $session->inContext('authenticated');
-
-    my $url = logoutUrl(@_);
-
-    if ($url) {
-        my $text = $session->templates->expandTemplate('LOG_OUT');
-        return CGI::a( { href => $url }, $text );
-    }
-    return '';
 }
 
 =pod
@@ -751,21 +880,57 @@ sub login {
     my $relaystate          = $query->param('RelayState');
     my $provider            = $query->param('provider');
     my $saml                = $query->param('saml');
+    my $origin              = $query->param('foswiki_origin');
 
+    Foswiki::Func::writeDebug("    SAML Query Parameters: $saml") if $this->{Saml}{ debug };
+    Foswiki::Func::writeDebug("        RelayState: $relaystate") if $this->{Saml}{ debug };
+    Foswiki::Func::writeDebug("        foswiki_origin: $origin") if $this->{Saml}{ debug };
     # Process the SAMLResponse
-    if ((defined $saml_response) || (($saml eq 'acs') && ( defined $saml_response ) ) ) {
-        Foswiki::Func::writeDebug("    SAMLResponse received") if $this->{Saml}{ debug };
-        $this->samlCallback($saml_response, $query, $session);
+    if ( ($saml eq 'slo_redirect') && ( defined $saml_response ) ) {
+        # This should be a GET request with "saml=slo_redirect"
+        Foswiki::Func::writeDebug("    SAML $saml: $query->{method} received") if $this->{Saml}{ debug };
+        my $originurl = $this->samlLogoutResponse($saml_response, $query, $session, $query->{method}, $relaystate);
+        $query->deleteAll();
+        $session->redirect( $originurl, 1 );
+        return;
     }
-    elsif ( ($saml eq 'slo_logout') && ( defined $saml_response ) ) {
-        Foswiki::Func::writeDebug("    SAML Logout received") if $this->{Saml}{ debug };
-        $this->samlLogoutResponse($saml_response, $query, $session);
+    elsif ( ($query->{uri} =~ 'saml=slo_post' ) && ( defined $saml_response ) ) {
+        #FIXME not sure whether to leave this seperate or combine with above
+        # This should be a POST request with "saml=slo_post" as part of uri
+        # $saml does not get set by the IdP as its POSTing to that as part of the URI
+        Foswiki::Func::writeDebug("    SAML Logout $saml $query->{uri}: $query->{method} received")
+            if $this->{Saml}{ debug };
+
+        my $originurl = $this->samlLogoutResponse($saml_response, $query, $session, $query->{method}, $relaystate);
+        $query->deleteAll();
+        $session->redirect( $originurl, 1 );
+        return;
+    }
+    elsif ( ( ($query->{uri} =~ 'saml=acs') && (defined $saml_response) ) || (defined $saml_response) ) {
+        $query->deleteAll();
+        # This should be a post to the ACS URL - $saml will never be set need the URI
+        # Also a fail safe to be compatiable with older versions where the saml=acs
+        # is not part of the URI
+        Foswiki::Func::writeDebug("    SAMLResponse acs received $query->{uri}") if $this->{Saml}{ debug };
+        $this->samlCallback($saml_response, $query, $session, $relaystate);
+        return;
+    }
+    elsif ( $query->{uri} =~ 'saml=logout' ) {
+        Foswiki::Func::writeDebug("    SAML Logout Initiation $saml $query->{uri}: $query->{method} received")
+            if $this->{Saml}{ debug };
+
+        my $url = $this->logoutUrl( $session, $origin);
+        Foswiki::Func::writeDebug("    SAML Logout Initiation URL:", $url) if $this->{Saml}{ debug };
+
+        $this->redirectToProvider($url, $query, $session);
+        return;
     }
     elsif ((defined $provider) && ($provider eq 'native')) {
         Foswiki::Func::writeDebug("    native login requested") if $this->{Saml}{ debug };
         # if we get a request for the native login
         # provider, we redirect to the original login
         $this->SUPER::login($query, $session);
+        return;
     }
     elsif ((defined $provider) && ($provider ne 'native')) {
         Foswiki::Func::writeDebug(
@@ -773,6 +938,9 @@ sub login {
         return;
     }
     elsif ((defined $saml) && ($saml eq 'metadata')) {
+        # Generate and return the metadata for Foswiki with the settings from
+        # the LocalSite.cfg
+        # FIXME: No real reason to protect this but need to think about it
         Foswiki::Func::writeDebug(
             "    request for metadata file") if $this->{Saml}{ debug };
         $session->{response}->header(
@@ -783,6 +951,11 @@ sub login {
         return;
     }
     else {
+        $query->delete('SAMLResponse');
+        $query->delete('foswiki_origin');
+        $query->delete('Signature');
+        $query->delete('SigAlg');
+        # This initiates the login request to the IdentityProvider
         my $idp = Net::SAML2::IdP->new_from_url(
             url     => $this->{Saml}{ metadata},
             cacert  => $this->{Saml}{ cacert },
@@ -807,6 +980,7 @@ sub login {
         Foswiki::Func::setSessionValue('saml_request_id', $authnreq->id);
 
         # Currently only supports HTTP-Redirect
+        # FIXME Support HTTP-POST
         my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $this->{Saml}{ sp_signing_key },
               cert => $this->{Saml}{ sp_signing_cert },
@@ -816,11 +990,7 @@ sub login {
 
         Foswiki::Func::writeDebug("    Net::SAML2::Binding::Redirect created") if $this->{Saml}{ debug };
 
-        my $origin      = $query->param('foswiki_origin');
-
-        # Avoid accidental passthrough
-        $query->delete('foswiki_origin');
-
+        # foswiki_origin is passed here as the RelayState
         my $url = $redirect->sign($authnreq->as_xml , $origin);
 
         Foswiki::Func::writeDebug("    $url") if $this->{Saml}{ debug };

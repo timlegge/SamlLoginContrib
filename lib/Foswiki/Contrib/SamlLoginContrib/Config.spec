@@ -11,6 +11,10 @@
 # Enable debug mode (to print errors)
 $Foswiki::cfg{Saml}{Debug} = 1;
 
+# **BOOLEAN LABEL="Support SAML SLO"**
+# Enable support for logging out at the SAML Identity Provider
+$Foswiki::cfg{Saml}{SupportSLO} = 1;
+
 # ---+++ Identity Provider Settings
 # **STRING LABEL="IDP Metadata URI"**
 # Identity Provider (IdP) metadata file location (must be a URI).
@@ -113,6 +117,11 @@ $Foswiki::cfg{Saml}{org_name} = 'Foswiki';
 # Application (Foswiki). Used only if you are generating metadata.xml
 $Foswiki::cfg{Saml}{org_display_name} = 'Foswiki Organization';
 
+# **STRING LABEL="Organization Contact"**
+# Specifies the organization contact for the Service Provider
+# Application (Foswiki). Used only if you are generating metadata.xml
+$Foswiki::cfg{Saml}{org_contact} = 'samladmin@foswiki.local';
+
 # **STRING LABEL="Service Provider URL"**
 # Specifies a URL for the Identity Provider to use as the main URL for the
 # Foswiki INstallation. Used only if you are generating metadata.xml automatically
@@ -145,5 +154,10 @@ $Foswiki::cfg{Saml}{slo_url_post} = '/bin/login?saml=slo_post';
 # Specifies a URL for the Identity Provider to use as the POST
 # ACS end point. Used only if you are generating metadata.xml automatically
 $Foswiki::cfg{Saml}{acs_url_post} = '/bin/login?saml=acs';
+
+# **STRING LABEL="Authentication Consumer Service (ACS) Artifact URL" EXPERT**
+# Specifies a URL for the Identity Provider to use as an Artifact URL
+# Used only if you are generating metadata.xml automatically
+$Foswiki::cfg{Saml}{acs_url_artifact} = '';
 
 1;
