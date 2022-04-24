@@ -122,14 +122,15 @@ The SAML Service Provider (SP) implementation means that no usernames or passwor
 |  Change History: | <!-- versions below in reverse order --> <sticky> </sticky> |
 |  1.0.0 (24 Feb 2019): | Initial release |
 |  1.1.0 (30 Mar 2021): | Clean up of Code, Debugging and Readaability Improvements |
+|  1.1.1 (23 Apr 2022): | Support for SAML2 LogoutRequest/Response |
 
 %META:FORM{name="PackageForm"}%
 %META:FIELD{name="Author" title="Author" value="TimothyLegge"}%
-%META:FIELD{name="Version" title="Version" value="1.1.0"}%
-%META:FIELD{name="Release" title="Release" value="30 Mar 2021"}%
+%META:FIELD{name="Version" title="Version" value="1.1.1"}%
+%META:FIELD{name="Release" title="Release" value="23 Apr 2022"}%
 %META:FIELD{name="Description" title="Description" value="Enables Authentication via SAML Authentication"}%
 %META:FIELD{name="Repository" title="Repository" value="https://github.com/timlegge/SamlLoginContrib"}%
-%META:FIELD{name="Copyright" title="Copyright" value="&copy; 2019-2021, TimothyLegge and  2016, PascalSchuppli (Portions from OpenIDLoginContrib), All Rights Reserved"}%
+%META:FIELD{name="Copyright" title="Copyright" value="&copy; 2019-2022, TimothyLegge and  2016, PascalSchuppli (Portions from OpenIDLoginContrib), All Rights Reserved"}%
 %META:FIELD{name="License" title="License" value="GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]])"}%
 %META:FIELD{name="Home" title="Home" value="http://foswiki.org/Extensions/%25TOPIC%25"}%
 %META:FIELD{name="Support" title="Support" value="http://foswiki.org/Support/%25TOPIC%25"}%
