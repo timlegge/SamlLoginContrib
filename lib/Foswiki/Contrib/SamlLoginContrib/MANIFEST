@@ -1,5 +1,6 @@
 !noci
 data/System/SamlLoginContrib.txt 0644
+lib/Foswiki/Configure/Wizards/SAML2Metadata.pm 0644
 lib/Foswiki/Contrib/SamlLoginContrib/Config.spec 0644
 lib/Foswiki/Contrib/SamlLoginContrib/DEPENDENCIES 0644
 lib/Foswiki/Contrib/SamlLoginContrib.pm 0644

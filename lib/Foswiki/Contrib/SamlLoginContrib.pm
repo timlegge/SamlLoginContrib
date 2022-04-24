@@ -11,8 +11,8 @@ package Foswiki::Contrib::SamlLoginContrib;
 use strict;
 use warnings;
 
-our $VERSION = '1.10';
-our $RELEASE = '30 Mar 2021';
+our $VERSION = '1.11';
+our $RELEASE = '23 Apr 2022';
 
 our $SHORTDESCRIPTION = 'Provides a LoginManager to authenticate via Saml';
 
@@ -21,7 +21,7 @@ our $SHORTDESCRIPTION = 'Provides a LoginManager to authenticate via Saml';
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2016 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2022 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

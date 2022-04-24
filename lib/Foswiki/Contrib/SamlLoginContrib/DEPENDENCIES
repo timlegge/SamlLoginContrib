@@ -20,4 +20,5 @@ Net::SAML2,>=0.44,cpan,Required
 URI,>=1.76,cpan,Required
 XML::Generator,>=1.04,cpan,Required
 XML::XPath,>=1.44,cpan,Required
+XML::Sig,>=0.52,cpan,Required
 XML::Tidy,>=1.20,cpan,Required
