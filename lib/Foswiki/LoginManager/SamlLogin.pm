@@ -722,7 +722,6 @@ sub samlCallback {
 
 sub _LOGOUTURL {
     my ( $session, $params, $topic, $web ) = @_;
-    my $this = $session->getLoginManager();
 
     my $url = $session->getScriptUrl( 0, 'login', undef, undef,
         'saml' => 'logout') . '&foswiki_origin=' . _packRequest($session);
@@ -733,7 +732,6 @@ sub _LOGOUTURL {
 
 sub _LOGOUT {
     my ( $session, $params, $topic, $web ) = @_;
-    my $this = $session->getLoginManager();
 
     return '' unless $session->inContext('authenticated');
 
@@ -772,14 +770,23 @@ Overrides LoginManager. Content of a logout link.
 
 sub logoutUrl {
     my $this = shift;
-    my ( $session, $relaystate ) = @_;
+    my $session = $this->{session};
+    my $topic   = $session->{topicName};
+    my $web     = $session->{webName};
+
+    my $relaystate = _packRequest($session);
 
     $this->loadSamlData();
 
     if ( ! defined $this->{Saml}{SupportSLO} || ! $this->{Saml}{SupportSLO} ) {
         Foswiki::Func::writeDebug("    support for SAML Logout is disabled _LOGOUTURL")
             if $this->{Saml}{ debug };
-        return Foswiki::LoginManager::_LOGOUTURL(@_);
+        return $session->getScriptUrl(
+            0, 'view',
+            $session->{prefs}->getPreference('BASEWEB'),
+            $session->{prefs}->getPreference('BASETOPIC'),
+            'logout' => 1
+        );
     }
 
     my $idp = Net::SAML2::IdP->new_from_url(
@@ -808,7 +815,12 @@ sub logoutUrl {
     if ( $sessionindex eq '' ) {
         Foswiki::Func::writeDebug("    SessionIndex is not set defaulting to LoginManager _LOGOUTURL")
             if $this->{Saml}{ debug };
-        return Foswiki::LoginManager::_LOGOUTURL(@_);
+        return $session->getScriptUrl(
+            0, 'view',
+            $session->{prefs}->getPreference('BASEWEB'),
+            $session->{prefs}->getPreference('BASETOPIC'),
+            'logout' => 1
+        );
     }
 
     my $idp = Net::SAML2::IdP->new_from_url(
