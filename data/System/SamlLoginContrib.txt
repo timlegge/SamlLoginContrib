@@ -69,21 +69,17 @@ To login as the local admin (to access configure) you need to tell the login pro
 SamlLoginContrib aims to eventually support any SAML2 standards compliant Identity Provider and will include configuration options to allow you to use the data they provide.  So here's the current list of which providers were tested.
 
 | *Provider* | *State* |
-| Microsoft Azure | %GREEN%Tested%ENDCOLOR% |
+| Auth0 | (requires Net::SAML2 >=0.39) %GREEN%Works%ENDCOLOR% |
+| Microsoft Azure | %GREEN%Works%ENDCOLOR% |
 | Google GSuite | %GREEN%Works%ENDCOLOR% |
 | Jump | %GREEN%Works%ENDCOLOR% |
-| OneLogin | %GREEN%Works%ENDCOLOR% |
 | Keycloak | %GREEN%Works%ENDCOLOR% |
-| Mircosoft ADFS | %GREEN%Works%ENDCOLOR% |
-| Auth0 | (requires Net::SAML2 >=0.39) %GREEN%Works%ENDCOLOR% |
+| OneLogin | %GREEN%Works%ENDCOLOR% |
 | PingIdentity | (requires Net::SAML2 >=0.44) %GREEN%Works%ENDCOLOR% |
 
 ---++ Bugs, Shortcomings, Future work
 
-   1. Currently, it does not support SAML's Logout everywhere functionality. Destroying the Foswiki session isn't enough, because someone with access to the browser can simply re-authenticate without needing to enter a password. This is a hard problem. SAML Identity Providers offer a logout endpoint, but this functionality hasn't been implemented yet.
    1. We also don't currently support creating a New User Page like Ldap's NewUserPlugin but that is on the list. SAML can get at least the given name, family name and e-mail address in most cases. Other SAML providers can provide additional information. Groups can be provided but are not currently.
-   1. Future work should include support for Microsoft's SAML Federation service.
-   1. The code is still new and needs thorough testing. Bug reports are welcome.
 
 ---++ Nice to know
 
@@ -123,10 +119,11 @@ The SAML Service Provider (SP) implementation means that no usernames or passwor
 |  1.0.0 (24 Feb 2019): | Initial release |
 |  1.1.0 (30 Mar 2021): | Clean up of Code, Debugging and Readaability Improvements |
 |  1.1.1 (23 Apr 2022): | Support for SAML2 LogoutRequest/Response |
+|  1.1.2 (23 Apr 2022): | Fix issue in last release |
 
 %META:FORM{name="PackageForm"}%
 %META:FIELD{name="Author" title="Author" value="TimothyLegge"}%
-%META:FIELD{name="Version" title="Version" value="1.1.1"}%
+%META:FIELD{name="Version" title="Version" value="1.1.2"}%
 %META:FIELD{name="Release" title="Release" value="23 Apr 2022"}%
 %META:FIELD{name="Description" title="Description" value="Enables Authentication via SAML Authentication"}%
 %META:FIELD{name="Repository" title="Repository" value="https://github.com/timlegge/SamlLoginContrib"}%
