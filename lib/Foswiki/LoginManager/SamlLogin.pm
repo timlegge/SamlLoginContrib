@@ -162,6 +162,9 @@ sub extractLoginname {
     my $this    = shift;
     my $nameid  = shift;
 
+    Foswiki::Func::writeDebug(
+        "    extractLoginname:") if $this->{Saml}{debug};
+
     my $login = $nameid;
     # SMELL: This is here to make valid login names out of MS Azure AD
     # subject values. Probably shouldn't be done here, and this explicitly.
@@ -181,6 +184,9 @@ default WikiName) is returned instead.
 sub buildWikiName {
     my $this = shift;
     my $attributes = shift;
+
+    Foswiki::Func::writeDebug(
+        "    buildWikiName:") if $this->{Saml}{debug};
 
     $this->{wikiname_attrs} = $Foswiki::cfg{Saml}{WikiNameAttributes};
 
@@ -221,6 +227,9 @@ sub matchWikiUser {
     my $this     = shift;
     my $wikiname = shift;
     my $email    = shift;
+
+    Foswiki::Func::writeDebug(
+        "    matchWikiUser:") if $this->{Saml}{debug};
 
     my $web = $Foswiki::cfg{UsersWebName} || 'Main';
 
@@ -382,6 +391,9 @@ sub redirectToProvider {
     my $web         = $session->{webName};
     my $response    = $session->{response};
 
+    Foswiki::Func::writeDebug("redirectToProvider:")
+        if $this->{Saml}{ debug };
+
     if ( $this->{Saml}{ debug } ) {
         Foswiki::Func::writeDebug("    redirectToProvider set session values");
         Foswiki::Func::writeDebug("        topicName: $topic");
@@ -410,6 +422,9 @@ sub samlLogoutResponse
     my $session         = shift;
     my $type            = shift;
     my $relaystate      = shift;
+
+    Foswiki::Func::writeDebug("samlLogoutResponse:")
+        if $this->{Saml}{ debug };
 
     Foswiki::Func::writeDebug(
         "        query method - $type") if $this->{Saml}{ debug };
@@ -733,6 +748,9 @@ sub _LOGOUTURL {
 sub _LOGOUT {
     my ( $session, $params, $topic, $web ) = @_;
 
+    Foswiki::Func::writeDebug("_LOGOUT:")
+        if $session->{Saml}{ debug };
+
     return '' unless $session->inContext('authenticated');
 
     my $url = _LOGOUTURL(@_);
@@ -756,6 +774,10 @@ sub loginUrl {
     my $session = $this->{session};
     my $topic   = $session->{topicName};
     my $web     = $session->{webName};
+
+    Foswiki::Func::writeDebug("loginUrl:")
+        if $this->{Saml}{ debug };
+
     return $session->getScriptUrl( 0, 'login', undef, undef,
         foswiki_origin => _packRequest($session) );
 }
@@ -775,6 +797,9 @@ sub logoutUrl {
     my $web     = $session->{webName};
 
     my $relaystate = _packRequest($session);
+
+    Foswiki::Func::writeDebug("logoutUrl:")
+        if $this->{Saml}{ debug };
 
     $this->loadSamlData();
 
@@ -850,10 +875,6 @@ sub logoutUrl {
               url   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
     );
 
-#    my $origin      = $session->{request}->{uri};
-#    my ( $origurl, $origmethod, $origaction ) =
-#        Foswiki::LoginManager::TemplateLogin::_unpackRequest($foswiki_origin);
-
     Foswiki::Func::writeDebug("=======RelayState============") if $this->{Saml}{ debug };
     Foswiki::Func::writeDebug("    $relaystate") if $this->{Saml}{ debug };
     Foswiki::Func::writeDebug("=======RelayState============") if $this->{Saml}{ debug };
@@ -897,7 +918,9 @@ sub login {
     Foswiki::Func::writeDebug("    SAML Query Parameters: $saml") if $this->{Saml}{ debug };
     Foswiki::Func::writeDebug("        RelayState: $relaystate") if $this->{Saml}{ debug };
     Foswiki::Func::writeDebug("        foswiki_origin: $origin") if $this->{Saml}{ debug };
+
     # Process the SAMLResponse
+    # slo_redirect is a HTTP GET request for the response from a LogoutRequest
     if ( ($saml eq 'slo_redirect') && ( defined $saml_response ) ) {
         # This should be a GET request with "saml=slo_redirect"
         Foswiki::Func::writeDebug("    SAML $saml: $query->{method} received") if $this->{Saml}{ debug };
@@ -906,6 +929,7 @@ sub login {
         $session->redirect( $originurl, 1 );
         return;
     }
+    # FIXME: combine with above either this is a HPPT POST response for a LogoutRequest 
     elsif ( ($query->{uri} =~ 'saml=slo_post' ) && ( defined $saml_response ) ) {
         #FIXME not sure whether to leave this seperate or combine with above
         # This should be a POST request with "saml=slo_post" as part of uri
@@ -918,6 +942,7 @@ sub login {
         $session->redirect( $originurl, 1 );
         return;
     }
+    # This is a Response for an AuthnRequest (the login response)
     elsif ( ( ($query->{uri} =~ 'saml=acs') && (defined $saml_response) ) || (defined $saml_response) ) {
         $query->deleteAll();
         # This should be a post to the ACS URL - $saml will never be set need the URI
@@ -927,6 +952,7 @@ sub login {
         $this->samlCallback($saml_response, $query, $session, $relaystate);
         return;
     }
+    # Initiates the LogoutRequest process
     elsif ( $query->{uri} =~ 'saml=logout' ) {
         Foswiki::Func::writeDebug("    SAML Logout Initiation $saml $query->{uri}: $query->{method} received")
             if $this->{Saml}{ debug };
@@ -937,6 +963,7 @@ sub login {
         $this->redirectToProvider($url, $query, $session);
         return;
     }
+    # Overide the saml request to allow native login
     elsif ((defined $provider) && ($provider eq 'native')) {
         Foswiki::Func::writeDebug("    native login requested") if $this->{Saml}{ debug };
         # if we get a request for the native login
@@ -949,6 +976,7 @@ sub login {
             "    provider requested without native parameter") if $this->{Saml}{ debug };
         return;
     }
+    # Generate a metatada for the Foswiki SP if parameter saml=metadata is received
     elsif ((defined $saml) && ($saml eq 'metadata')) {
         # Generate and return the metadata for Foswiki with the settings from
         # the LocalSite.cfg
@@ -962,6 +990,7 @@ sub login {
         $session->{response}->body($this->getMetadata());
         return;
     }
+    # Initiate the AuthnRequest to login
     else {
         $query->delete('SAMLResponse');
         $query->delete('foswiki_origin');
@@ -1015,7 +1044,7 @@ sub login {
 ---++ ObjectMethod getMetadata()
 This is called directly by login() when login() detects a request
 for Foswiki's metadata.  This will generate a metadata.xml file for
-download.
+download.  This is also called by the Configure Wizard in configure
 =cut
 
 sub getMetadata {
