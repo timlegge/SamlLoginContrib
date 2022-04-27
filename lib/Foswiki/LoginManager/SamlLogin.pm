@@ -791,12 +791,9 @@ Overrides LoginManager. Content of a logout link.
 =cut
 
 sub logoutUrl {
-    my $this = shift;
-    my $session = $this->{session};
-    my $topic   = $session->{topicName};
-    my $web     = $session->{webName};
-
-    my $relaystate = _packRequest($session);
+    my $this            = shift;
+    my $session         = shift;
+    my $foswiki_origin  = shift;
 
     Foswiki::Func::writeDebug("logoutUrl:")
         if $this->{Saml}{ debug };
@@ -875,10 +872,8 @@ sub logoutUrl {
               url   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
     );
 
-    Foswiki::Func::writeDebug("=======RelayState============") if $this->{Saml}{ debug };
-    Foswiki::Func::writeDebug("    $relaystate") if $this->{Saml}{ debug };
-    Foswiki::Func::writeDebug("=======RelayState============") if $this->{Saml}{ debug };
-    my $url = $redirect->sign($logoutreq, $relaystate);
+    Foswiki::Func::writeDebug("    $foswiki_origin") if $this->{Saml}{ debug };
+    my $url = $redirect->sign($logoutreq, $foswiki_origin);
     Foswiki::Func::writeDebug("    Saml: logouturl url: ", $url) if $this->{Saml}{ debug };
 
     return $url;
