@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" comment="" date="155114061" format="1.1" reprev="1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" comment="" date="1651448351" format="1.1" reprev="1" version="1"}%
 %META:TOPICPARENT{name="Contribs"}%
 <!--
 One line description, required for extensions repository catalog.
@@ -121,11 +121,12 @@ The SAML Service Provider (SP) implementation means that no usernames or passwor
 |  1.1.1 (23 Apr 2022): | Support for SAML2 LogoutRequest/Response |
 |  1.1.2 (23 Apr 2022): | Fix issue in last release |
 |  1.1.3 (26 Apr 2022): | Fix Logout/Login loop |
+|  1.1.4 (01 May 2022): | Fixes #4 logoutUrl does not work correctly with NatSkinPlugin |
 
 %META:FORM{name="PackageForm"}%
 %META:FIELD{name="Author" title="Author" value="TimothyLegge"}%
-%META:FIELD{name="Version" title="Version" value="1.1.3"}%
-%META:FIELD{name="Release" title="Release" value="26 Apr 2022"}%
+%META:FIELD{name="Version" title="Version" value="1.1.4"}%
+%META:FIELD{name="Release" title="Release" value="01 May 2022"}%
 %META:FIELD{name="Description" title="Description" value="Enables Authentication via SAML Authentication"}%
 %META:FIELD{name="Repository" title="Repository" value="https://github.com/timlegge/SamlLoginContrib"}%
 %META:FIELD{name="Copyright" title="Copyright" value="&copy; 2019-2022, TimothyLegge and  2016, PascalSchuppli (Portions from OpenIDLoginContrib), All Rights Reserved"}%
