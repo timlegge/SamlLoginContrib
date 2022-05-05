@@ -72,6 +72,19 @@ $Foswiki::cfg{Saml}{WikiNameAttributes} = 'fname,lname';
 # to experiment with other claims, such as the 'emailaddress' claim.
 $Foswiki::cfg{Saml}{EmailAttributes} = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress';
 
+# **PERL LABEL="Assertion Attribute Mapping"**
+# Hash of map of Assertion Attributes to Foswiki UserForm Values.
+# The default is an example you will need to adjust the values of the hash to the names
+# used in the assertion attributes
+$Foswiki::cfg{Saml}{AttributeMap} = {
+    FirstName        => 'fname',
+    LastName         => 'lname',
+    Email	         => 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
+    OrganisationName => 'OrganisationName',
+    Profession       => 'Profession',
+    Telephone        => 'Telephone'
+};
+
 # **STRING LABEL="Form field to match"**
 # Specifies the form field to use for E-Mail address matching.
 # By default, if reserving of WikiNames is enabled, the form field to

@@ -712,6 +712,19 @@ sub samlCallback {
                     $query->action($origaction) if $origaction;
                 }
 
+                if (
+                    $this->{session}->topicExists(
+                        $Foswiki::cfg{UsersWebName},
+                        $wikiname
+                    )
+                )
+                {
+                    Foswiki::Func::writeDebug("    UserTopic Exists update form for: $Foswiki::cfg{UsersWebName}.$wikiname") if $this->{Saml}{ debug };
+                    $session->{'users'}->setEmails($cuid, $assertion->attributes->{'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'}[0]);
+                    $this->setUserFields($cuid, $assertion->attributes);
+                } else {
+                    Foswiki::Func::writeDebug("    UserTopic does not exists for: $Foswiki::cfg{UsersWebName}.$wikiname") if $this->{Saml}{ debug };
+                }
                 # Restore the method used on origUrl so if it was a GET, we
                 # get another GET.
                 $query->method($origmethod);
@@ -944,7 +957,7 @@ sub login {
         $session->redirect( $originurl, 1 );
         return;
     }
-    # FIXME: combine with above either this is a HTTP POST response for a LogoutRequest
+    # FIXME: combine with above either this is a HPPT POST response for a LogoutRequest
     elsif ( ($query->{uri} =~ 'saml=slo_post' ) && ( defined $saml_response ) ) {
         #FIXME not sure whether to leave this seperate or combine with above
         # This should be a POST request with "saml=slo_post" as part of uri
@@ -1095,4 +1108,53 @@ sub getMetadata {
     );
 
     return $sp->metadata;
+}
+
+=begin TML
+
+---++ StaticMethod setUserFields ($session, $user, @emails)
+
+=cut
+
+sub setUserFields {
+    my $this          = shift;
+    my $cUID          = shift;
+    my $attributes    = shift;
+
+    my $session = $this->{session};
+    my $user = $session->{users}->getWikiName($cUID);
+
+    my $field_map = $Foswiki::cfg{Saml}{AttributeMap};
+
+    my $topicObject =
+      Foswiki::Meta->load( $session, $Foswiki::cfg{UsersWebName}, $user );
+
+    if ( $topicObject->get('FORM') ) {
+
+        foreach my $key (keys %$field_map) {
+            # use the form if there is one
+            $topicObject->putKeyed(
+                'FIELD',
+                {
+                    name       => $key,
+                    value      => $attributes->{${$field_map}{$key}}[0],
+                    title      => $key,
+                    attributes => 'h'
+                }
+            );
+        }
+    }
+    else {
+        # otherwise use the topic text
+        my $text = $topicObject->text() || '';
+        unless ( $text =~ s/^(\s+\*\s+First Name:\s*).*$/$1$attributes->{fname}/mi ) {
+            foreach my $key (keys %$field_map) {
+                if ($key =~ /Email/) { next;}
+                $text .= "\n   * $key: $attributes->{${$field_map}{$key}}[0]\n";
+            }
+        }
+        $topicObject->text($text);
+    }
+
+    $topicObject->save();
 }
