@@ -11,8 +11,8 @@ package Foswiki::Contrib::SamlLoginContrib;
 use strict;
 use warnings;
 
-our $VERSION = '1.15';
-our $RELEASE = '04 May 2022';
+our $VERSION = '1.16';
+our $RELEASE = '05 May 2022';
 
 our $SHORTDESCRIPTION = 'Provides a LoginManager to authenticate via Saml';
 
