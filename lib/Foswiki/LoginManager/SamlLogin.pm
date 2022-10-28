@@ -925,7 +925,7 @@ sub _logoutUrl {
         );
     }
 
-    my $idp = Net::SAML2::IdP->new_from_url(
+    $idp = Net::SAML2::IdP->new_from_url(
         url     => $this->{Saml}{ metadata},
         cacert  => $this->{Saml}{ cacert },
     );
