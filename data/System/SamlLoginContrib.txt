@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" comment="" date="1651707741" format="1.1" reprev="1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" comment="" date="1666998573" format="1.1" reprev="1" version="1"}%
 %META:TOPICPARENT{name="Contribs"}%
 <!--
 One line description, required for extensions repository catalog.
@@ -112,7 +112,7 @@ Upon initial login the user is registered and the user's topic is created.  Unfo
 |  Dependencies: |
 
 | *Name* | *Version* | *Description* |
-| NET:SAML2  | 0.44 | Required  |
+| NET:SAML2  | 0.61 | Required  |
 | LWP::UserAgent  | &gt;=6.15  | Required for getting the Metadata  |
 | Crypt::JWT  | &gt;=0.010  | Required for JWT signature verification  |
 | Crypt::Random  | | Required for cryptographically secure nonces  |
@@ -128,11 +128,12 @@ Upon initial login the user is registered and the user's topic is created.  Unfo
 |  1.1.4 (01 May 2022): | Fixes #4 logoutUrl does not work correctly with NatSkinPlugin |
 |  1.1.5 (04 May 2022): | Update User Form with data from SAML2 attributes |
 |  1.16 (05 May 2022): | Fix Version format |
+|  1.17 (27 Oct 2022): | Updates for Net::SAML2 and oops page for some errors |
 
 %META:FORM{name="PackageForm"}%
 %META:FIELD{name="Author" title="Author" value="TimothyLegge"}%
-%META:FIELD{name="Version" title="Version" value="1.16"}%
-%META:FIELD{name="Release" title="Release" value="05 May 2022"}%
+%META:FIELD{name="Version" title="Version" value="1.17"}%
+%META:FIELD{name="Release" title="Release" value="28 Oct 2022"}%
 %META:FIELD{name="Description" title="Description" value="Enables Authentication via SAML Authentication"}%
 %META:FIELD{name="Repository" title="Repository" value="https://github.com/timlegge/SamlLoginContrib"}%
 %META:FIELD{name="ExtensionClassification" title="ExtensionClassification" value="Admin, Security"}%
