@@ -1,0 +1,9 @@
+%TMPL:INCLUDE{"oops"}%
+%TMPL:DEF{"titleaction"}% %MAKETEXT{"SAML problem"}% %TMPL:END%
+%TMPL:DEF{"heading"}%%MAKETEXT{"Problem with SAML %PARAM1%"}%%TMPL:END%
+%TMPL:DEF{"topicactionbuttons"}%%TMPL:P{"oktopicaction"}%%TMPL:END%
+%TMPL:DEF{"script"}%<meta http-equiv="refresh" content="0;url=%SCRIPTURL{view}%/%WEB%/%TOPIC%" />%TMPL:END%
+%TMPL:DEF{"pagetitle"}%%TMPL:P{"heading"}%%TMPL:END%
+%TMPL:DEF{"webaction"}% *%MAKETEXT{"Warning"}%* %TMPL:END%
+%TMPL:DEF{"message"}%
+%MAKETEXT{"The SAML %PARAM1% cannot complete properly.<br/>%PARAM2%<br/>%PARAM3%<br/>%PARAM4%"}% %TMPL:END%

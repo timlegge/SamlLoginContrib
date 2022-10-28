@@ -1,6 +1,6 @@
 # Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 #
-# Copyright (C) 2021-2019 by Timothy Legge timlegge@gmail.com
+# Copyright (C) 2019-2022 by Timothy Legge timlegge@gmail.com
 # Based on foswiki/OpenIDLoginContrib
 # Copyright (C) 2016 by Pascal Schuppli pascal.schuppli@gbsl.ch
 #
@@ -26,19 +26,14 @@ TemplateLogin manager.
 
 =cut
 
-use LWP;
-use LWP::UserAgent;
-use Net::SAML2 0.44;
-use Data::Dumper;
-use Net::SAML2::XML::Sig;
-use MIME::Base64 qw/ decode_base64 /;
 use strict;
 use warnings;
+use Net::SAML2 0.61;
+use Net::SAML2::XML::Sig;
+use MIME::Base64 qw/ decode_base64 /;
 use Foswiki;
 use Foswiki::LoginManager::TemplateLogin ();
-use Foswiki::Sandbox ();
-
-use Foswiki::Contrib::SamlLoginContrib();
+use Data::Dumper;
 
 @Foswiki::LoginManager::SamlLogin::ISA = qw( Foswiki::LoginManager::TemplateLogin );
 
@@ -63,7 +58,24 @@ sub new {
   undef $this->{Saml}{sls_force_lcase_url_encoding};
   undef $this->{Saml}{sls_double_encoded_response};
   undef $this->{Saml}{SupportSLO};
-
+  undef $this->{Saml}{AttributeMap};
+  undef $this->{Saml}{Debug};
+  undef $this->{Saml}{EmailAttributes};
+  undef $this->{Saml}{ForbiddenWikinames};
+  undef $this->{Saml}{UserFormMatch};
+  undef $this->{Saml}{UserFormMatchField};
+  undef $this->{Saml}{WikiNameAttributes};
+  undef $this->{Saml}{acs_url_artifact};
+  undef $this->{Saml}{acs_url_post};
+  undef $this->{Saml}{error_url};
+  undef $this->{Saml}{org_contact};
+  undef $this->{Saml}{org_display_name};
+  undef $this->{Saml}{org_name};
+  undef $this->{Saml}{sign_metatdata};
+  undef $this->{Saml}{slo_url_post};
+  undef $this->{Saml}{slo_url_redirect};
+  undef $this->{Saml}{slo_url_soap};
+  undef $this->{Saml}{url};
 
   Foswiki::registerTagHandler( 'LOGOUT',           \&_LOGOUT );
   Foswiki::registerTagHandler( 'LOGOUTURL',        \&_LOGOUTURL );
@@ -423,6 +435,10 @@ sub samlLogoutResponse
     my $type            = shift;
     my $relaystate      = shift;
 
+    # Store the saml_logoutrequest_id that was set from the original
+    # LogoutRequest id
+    my $saml_logoutrequest_id = $this->getAndClearSessionValue('saml_logoutrequest_id');
+
     Foswiki::Func::writeDebug("samlLogoutResponse:")
         if $this->{Saml}{ debug };
 
@@ -502,30 +518,47 @@ sub samlLogoutResponse
             cacert => $this->{Saml}{cacert},
         );
 
-        my $response = $post->handle_response(
+        my $xml = $post->handle_response(
             $saml_response,
         );
 
         Foswiki::Func::writeDebug(
-            "        saml_response = " . decode_base64($saml_response)) if $this->{Saml}{ debug };
+            "        saml_response = " . $xml) if $this->{Saml}{ debug };
 
         Foswiki::Func::writeDebug(
             "        RelayState = $relaystate") if $this->{Saml}{ debug };
 
-        #FIXME check cert
-        if ($response =~ 'verified' ) {
+        # The handle_response above checks the cert and cacert if it is defined
+        # so if $xml was returned the verification occured properly.
+        if (defined($xml)) {
             $logout = Net::SAML2::Protocol::LogoutResponse->new_from_xml(
-                        xml => decode_base64($saml_response)
+                        xml => $xml
             );
             Foswiki::Func::writeDebug(
-                "        Logout Response was properly signed: $response") if $this->{Saml}{ debug };
+                "        Logout Response was properly signed: $xml") if $this->{Saml}{ debug };
         }
         else {
             # Logout Response was not properly signed
             Foswiki::Func::writeDebug(
-                "        Logout Response was not properly signed: $response") if $this->{Saml}{ debug };
+                "        Logout Response was not properly signed: $xml") if $this->{Saml}{ debug };
             return $origurl;
         }
+    }
+
+    if ($saml_logoutrequest_id ne $logout->{response_to}) {
+        my $topic       = $session->{topicName};
+        my $web         = $session->{webName};
+
+        throw Foswiki::OopsException( 'samllogincontrib',
+                            status => 418,
+                            web => $web,
+                            topic => $topic,
+                            params => [ 'logout', 'InResponseTo Mismatch',
+                                        "Request id: $saml_logoutrequest_id",
+                                        "InResponseTo $logout->{response_to}",] );
+
+        $session->redirect( $origurl, 1 );
+        return $origurl;
     }
 
     if ($logout->status eq 'urn:oasis:names:tc:SAML:2.0:status:Success') {
@@ -545,6 +578,10 @@ sub samlLogoutResponse
                         "            origaction : $origaction";
             Foswiki::Func::writeDebug(
                 "$text");
+            Foswiki::Func::writeDebug(
+                "        Original LogoutRequest id - $saml_logoutrequest_id") if $this->{Saml}{ debug };
+            Foswiki::Func::writeDebug(
+                "        Logout InResponseTo - $logout->{response_to}") if $this->{Saml}{ debug };
             Foswiki::Func::writeDebug(
                 "        Logout Success Status - $logout->{issuer}") if $this->{Saml}{ debug };
         }
@@ -607,16 +644,18 @@ sub samlCallback {
 
         # Send the SAMLResponse to the Binding for the POST
         # The return has the CA certificate Subject and verified if correct
-        my $ret = $post->handle_response(
+        my $xml = $post->handle_response(
                 $saml_response
         );
 
-        if ($ret) {
+        Foswiki::Func::writeDebug(
+            "        SAMLResponse handle_response $xml") if $this->{Saml}{ debug };
+        if ($xml) {
             Foswiki::Func::writeDebug(
             "        SAMLResponse handled successfully by POST") if $this->{Saml}{ debug };
 
             my $assertion = Net::SAML2::Protocol::Assertion->new_from_xml(
-                xml         => decode_base64($saml_response),
+                xml         => $xml,
                 key_file    => $this->{Saml}{sp_signing_key},
                 cacert      => $this->{Saml}{cacert},
             );
@@ -638,6 +677,14 @@ sub samlCallback {
             my $valid = $assertion->valid($issuer, $saml_request_id);
 
             if (!$valid) {
+                throw Foswiki::OopsException( 'samllogincontrib',
+                            status => 418,
+                            web => $web,
+                            topic => $topic,
+                            params => [ 'login', 'InResponseTo Mismatch',
+                                        "Request id: $saml_request_id",
+                                        "InResponseTo $assertion->{in_response_to}",] );
+
                 # Always print this in debug as the chances of this occuring is rare
                 Foswiki::Func::writeDebug("        SAML assertion is invalid");
                 Foswiki::Func::writeDebug("            Issuer:       $issuer");
@@ -896,6 +943,10 @@ sub _logoutUrl {
 
     my $logoutreq = $logoutrequest->as_xml;
 
+    # Store the request's id for later verification
+    Foswiki::Func::setSessionValue('saml_logoutrequest_id', $logoutrequest->{id});
+
+    Foswiki::Func::writeDebug("    Saml: logouturl LogoutRequest ID: ", $logoutrequest->{id}) if $this->{Saml}{ debug };
     Foswiki::Func::writeDebug("    Saml: logouturl logoutreq: ", $logoutreq) if $this->{Saml}{ debug };
     my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $this->{Saml}{ sp_signing_key },
@@ -1046,7 +1097,7 @@ sub login {
         }
 
         # Store the request's id for later verification
-        Foswiki::Func::setSessionValue('saml_request_id', $authnreq->id);
+        Foswiki::Func::setSessionValue('saml_request_id', $authnreq->{id});
 
         # Currently only supports HTTP-Redirect
         # FIXME Support HTTP-POST
@@ -1105,6 +1156,7 @@ sub getMetadata {
         org_name     => $org_name,
         org_display_name => $org_display_name,
         org_contact  => $org_contact,
+        sign_metadata => $Foswiki::cfg{Saml}{sign_metatdata},
     );
 
     return $sp->metadata;
