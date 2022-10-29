@@ -118,7 +118,6 @@ Upon initial login the user is registered and the user's topic is created.  Unfo
 | Crypt::Random  | | Required for cryptographically secure nonces  |
 | JSON  | | Required  |
 
-|
 |  Change History: | <!-- versions below in reverse order --> <sticky> </sticky> |
 |  1.0.0 (24 Feb 2019): | Initial release |
 |  1.1.0 (30 Mar 2021): | Clean up of Code, Debugging and Readaability Improvements |
@@ -129,11 +128,12 @@ Upon initial login the user is registered and the user's topic is created.  Unfo
 |  1.1.5 (04 May 2022): | Update User Form with data from SAML2 attributes |
 |  1.16 (05 May 2022): | Fix Version format |
 |  1.17 (27 Oct 2022): | Updates for Net::SAML2 and oops page for some errors |
+|  1.18 (29 Oct 2022): | Fix version date issue |
 
 %META:FORM{name="PackageForm"}%
 %META:FIELD{name="Author" title="Author" value="TimothyLegge"}%
-%META:FIELD{name="Version" title="Version" value="1.17"}%
-%META:FIELD{name="Release" title="Release" value="28 Oct 2022"}%
+%META:FIELD{name="Version" title="Version" value="1.18"}%
+%META:FIELD{name="Release" title="Release" value="29 Oct 2022"}%
 %META:FIELD{name="Description" title="Description" value="Enables Authentication via SAML Authentication"}%
 %META:FIELD{name="Repository" title="Repository" value="https://github.com/timlegge/SamlLoginContrib"}%
 %META:FIELD{name="ExtensionClassification" title="ExtensionClassification" value="Admin, Security"}%
