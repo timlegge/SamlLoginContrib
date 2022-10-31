@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" comment="" date="1666998573" format="1.1" reprev="1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" comment="" date="1667253917" format="1.1" reprev="1" version="1"}%
 %META:TOPICPARENT{name="Contribs"}%
 <!--
 One line description, required for extensions repository catalog.
@@ -129,11 +129,12 @@ Upon initial login the user is registered and the user's topic is created.  Unfo
 |  1.16 (05 May 2022): | Fix Version format |
 |  1.17 (27 Oct 2022): | Updates for Net::SAML2 and oops page for some errors |
 |  1.18 (29 Oct 2022): | Fix version date issue |
+|  1.19 (31 Oct 2022): | Add additional oops and change oops status code |
 
 %META:FORM{name="PackageForm"}%
 %META:FIELD{name="Author" title="Author" value="TimothyLegge"}%
-%META:FIELD{name="Version" title="Version" value="1.18"}%
-%META:FIELD{name="Release" title="Release" value="29 Oct 2022"}%
+%META:FIELD{name="Version" title="Version" value="1.19"}%
+%META:FIELD{name="Release" title="Release" value="31 Oct 2022"}%
 %META:FIELD{name="Description" title="Description" value="Enables Authentication via SAML Authentication"}%
 %META:FIELD{name="Repository" title="Repository" value="https://github.com/timlegge/SamlLoginContrib"}%
 %META:FIELD{name="ExtensionClassification" title="ExtensionClassification" value="Admin, Security"}%
