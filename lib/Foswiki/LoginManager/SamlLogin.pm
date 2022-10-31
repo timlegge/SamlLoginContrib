@@ -550,7 +550,7 @@ sub samlLogoutResponse
         my $web         = $session->{webName};
 
         throw Foswiki::OopsException( 'samllogincontrib',
-                            status => 418,
+                            status => 500,
                             web => $web,
                             topic => $topic,
                             params => [ 'logout', 'InResponseTo Mismatch',
@@ -587,6 +587,16 @@ sub samlLogoutResponse
         }
     }
     else {
+        my $topic       = $session->{topicName};
+        my $web         = $session->{webName};
+        throw Foswiki::OopsException( 'samllogincontrib',
+                    status => 500,
+                    web => $web,
+                    topic => $topic,
+                    params => [ 'logout', 'Logout Failure',
+                                "Status: $logout->{status}",
+                                "Additional Info: $logout->{substatus}",] );
+
         Foswiki::Func::writeDebug(
             "        Logout Failed Status") if $this->{Saml}{ debug };
         $session->redirect( $origurl, 1 );
@@ -678,7 +688,7 @@ sub samlCallback {
 
             if (!$valid) {
                 throw Foswiki::OopsException( 'samllogincontrib',
-                            status => 418,
+                            status => 500,
                             web => $web,
                             topic => $topic,
                             params => [ 'login', 'InResponseTo Mismatch',
