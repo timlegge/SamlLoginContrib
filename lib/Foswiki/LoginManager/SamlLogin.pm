@@ -28,7 +28,7 @@ TemplateLogin manager.
 
 use strict;
 use warnings;
-use Net::SAML2 0.61;
+use Net::SAML2 0.78;
 use Net::SAML2::XML::Sig;
 use URN::OASIS::SAML2 qw(:bindings :urn);
 use MIME::Base64 qw/ decode_base64 /;
@@ -162,7 +162,7 @@ sub extractEmail {
 
     return $attributes->{$email}[0] if exists $attributes->{$email};
 
-    return undef;
+    return '';
 }
 
 =pod
@@ -620,8 +620,8 @@ sub samlCallback {
     my $relaystate      = shift;
 
     my $origin  = $this->getAndClearSessionValue('saml_origin');
-    my $web     = $this->getAndClearSessionValue('saml_web');
-    my $topic   = $this->getAndClearSessionValue('saml_topic');
+    my $web     = $this->getAndClearSessionValue('saml_web') || '';
+    my $topic   = $this->getAndClearSessionValue('saml_topic') || '';
 
     Foswiki::Func::writeDebug(
         "    samlCallback") if $this->{Saml}{ debug };
@@ -724,7 +724,7 @@ sub samlCallback {
                 }
 
                 Foswiki::Func::writeDebug("            Assertion NameID $assertion->{nameid}")
-                    if $this->{Saml}{ debug };
+                    if defined $assertion->{nameid} && $this->{Saml}{ debug };
 
                 my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
 
@@ -1005,13 +1005,15 @@ sub login {
     my $saml                = $query->param('saml');
     my $origin              = $query->param('foswiki_origin');
 
-    Foswiki::Func::writeDebug("    SAML Query Parameters: $saml") if $this->{Saml}{ debug };
-    Foswiki::Func::writeDebug("        RelayState: $relaystate") if $this->{Saml}{ debug };
-    Foswiki::Func::writeDebug("        foswiki_origin: $origin") if $this->{Saml}{ debug };
+    if ($this->{Saml}{ debug }) {
+        Foswiki::Func::writeDebug("    SAML Query Parameters: $saml") if defined $saml;
+        Foswiki::Func::writeDebug("        RelayState: $relaystate") if defined $relaystate;
+        Foswiki::Func::writeDebug("        foswiki_origin: $origin") if defined $origin;
+    }
 
     # Process the SAMLResponse
     # slo_redirect is a HTTP GET request for the response from a LogoutRequest
-    if ( ($saml eq 'slo_redirect') && ( defined $saml_response ) ) {
+    if ( (defined $saml) && ($saml eq 'slo_redirect') && ( defined $saml_response ) ) {
         # This should be a GET request with "saml=slo_redirect"
         Foswiki::Func::writeDebug("    SAML $saml: $query->{method} received") if $this->{Saml}{ debug };
         my $originurl = $this->samlLogoutResponse($saml_response, $query, $session, $query->{method}, $relaystate);
