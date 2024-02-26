@@ -30,6 +30,7 @@ use strict;
 use warnings;
 use Net::SAML2 0.61;
 use Net::SAML2::XML::Sig;
+use URN::OASIS::SAML2 qw(:bindings :urn);
 use MIME::Base64 qw/ decode_base64 /;
 use Foswiki;
 use Foswiki::LoginManager::TemplateLogin ();
@@ -1150,17 +1151,39 @@ sub getMetadata {
     my $acs_url_artifact    = $Foswiki::cfg{Saml}{acs_url_artifact};
     my $url                 = $Foswiki::cfg{Saml}{url} || $Foswiki::cfg{Saml}{DefaultUrlHost};
 
-   my $sp = Net::SAML2::SP->new(
-        id     => $Foswiki::cfg{Saml}{issuer},
+    my $sp = Net::SAML2::SP->new(
+        issuer => $Foswiki::cfg{Saml}{issuer},
         url    => $url,
         cert   => $Foswiki::cfg{Saml}{sp_signing_cert},
         key    => $Foswiki::cfg{Saml}{sp_signing_key},
         cacert => $Foswiki::cfg{Saml}{cacert},
-        slo_url_soap => $slo_url_soap,
-        slo_url_redirect => $slo_url_redirect,
-        slo_url_post => $slo_url_post,
-        acs_url_post => $acs_url_post,
-        acs_url_artifact => $acs_url_artifact,
+        single_logout_service => [
+        {
+            Binding     => BINDING_HTTP_REDIRECT,
+            Location    => $url . $slo_url_redirect,
+        },
+        {
+            Binding     => BINDING_HTTP_POST,
+            Location    => $url . $slo_url_post,
+        },
+        {
+            Binding     => BINDING_HTTP_ARTIFACT,
+            Location    => $url . $slo_url_soap,
+        }],
+        assertion_consumer_service => [
+        {
+            Binding     => BINDING_HTTP_POST,
+            Location    => $url . $acs_url_post,
+            isDefault   => 'false',
+            # optionally
+            index       => 1,
+        },
+        {
+            Binding     => BINDING_HTTP_ARTIFACT,
+            Location    => $url . $acs_url_artifact,
+            isDefault   => 'true',
+            index       => 2,
+        }],
         error_url => $error_url,
 
         org_name     => $org_name,
