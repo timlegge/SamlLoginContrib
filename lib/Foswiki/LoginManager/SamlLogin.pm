@@ -546,7 +546,10 @@ sub samlLogoutResponse
         }
     }
 
-    if ($saml_logoutrequest_id ne $logout->{response_to}) {
+    my $in_response_to = $logout->in_response_to;
+
+    if (!defined $saml_logoutrequest_id || !defined $in_response_to
+        || $saml_logoutrequest_id ne $in_response_to) {
         my $topic       = $session->{topicName};
         my $web         = $session->{webName};
 
@@ -556,7 +559,7 @@ sub samlLogoutResponse
                             topic => $topic,
                             params => [ 'logout', 'InResponseTo Mismatch',
                                         "Request id: $saml_logoutrequest_id",
-                                        "InResponseTo $logout->{response_to}",] );
+                                        "InResponseTo $in_response_to",] );
 
         $session->redirect( $origurl, 1 );
         return $origurl;
@@ -582,7 +585,7 @@ sub samlLogoutResponse
             Foswiki::Func::writeDebug(
                 "        Original LogoutRequest id - $saml_logoutrequest_id") if $this->{Saml}{ debug };
             Foswiki::Func::writeDebug(
-                "        Logout InResponseTo - $logout->{response_to}") if $this->{Saml}{ debug };
+                "        Logout InResponseTo - " . $logout->in_response_to) if $this->{Saml}{ debug };
             Foswiki::Func::writeDebug(
                 "        Logout Success Status - $logout->{issuer}") if $this->{Saml}{ debug };
         }
