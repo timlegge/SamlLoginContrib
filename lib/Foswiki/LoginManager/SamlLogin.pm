@@ -218,7 +218,7 @@ sub buildWikiName {
     }
 
     # Forbidden wikinames get mapped to WikiGuest too
-    my @forbidden = split(/\s+,\s+/, $Foswiki::cfg{Saml}{ForbiddenWikinames});
+    my @forbidden = split(/\s*,\s*/, $Foswiki::cfg{Saml}{ForbiddenWikinames} // '');
     for my $bignono (@forbidden) {
         if ($wikiname eq $bignono) {
             return $Foswiki::cfg{DefaultUserWikiName};
