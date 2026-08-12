@@ -519,12 +519,13 @@ sub samlLogoutResponse
             cacert => $this->{Saml}{cacert},
         );
 
-        my $xml = $post->handle_response(
-            $saml_response,
-        );
+        my $xml = eval{ $post->handle_response($saml_response) };
+        # Capture $@ immediately - anything called below may run its own
+        # eval and reset it before we get to report the failure.
+        my $err = $@;
 
         Foswiki::Func::writeDebug(
-            "        saml_response = " . $xml) if $this->{Saml}{ debug };
+            "        saml_response = " . $xml) if defined $xml && $this->{Saml}{ debug };
 
         Foswiki::Func::writeDebug(
             "        RelayState = $relaystate") if $this->{Saml}{ debug };
@@ -539,9 +540,16 @@ sub samlLogoutResponse
                 "        Logout Response was properly signed: $xml") if $this->{Saml}{ debug };
         }
         else {
+            $err ||= 'unknown verification failure';
+            my $topic       = $session->{topicName};
+            my $web         = $session->{webName};
+
             # Logout Response was not properly signed
             Foswiki::Func::writeDebug(
-                "        Logout Response was not properly signed: $xml") if $this->{Saml}{ debug };
+                "        Logout Response was not properly signed: $err");
+            throw Foswiki::OopsException( 'samllogincontrib',
+                status => 500, web => $web, topic => $topic,
+                params => [ 'login', 'Logout Response verrification failed', $err, '' ] );
             return $origurl;
         }
     }
@@ -658,21 +666,42 @@ sub samlCallback {
 
         # Send the SAMLResponse to the Binding for the POST
         # The return has the CA certificate Subject and verified if correct
-        my $xml = $post->handle_response(
-                $saml_response
-        );
+        my $xml = eval { $post->handle_response($saml_response) };
+        # Capture $@ immediately - anything called below may run its own
+        # eval and reset it before we get to report the failure.
+        my $err = $@;
+
+        if (!defined $xml) {
+            $err ||= 'unknown verification failure';
+            Foswiki::Func::writeDebug("    SAMLResponse verification failed: $err");
+            throw Foswiki::OopsException( 'samllogincontrib',
+                status => 500, web => $web, topic => $topic,
+                params => [ 'login', 'Response verification failed', $err, '' ] );
+        }
 
         Foswiki::Func::writeDebug(
             "        SAMLResponse handle_response $xml") if $this->{Saml}{ debug };
+
         if ($xml) {
             Foswiki::Func::writeDebug(
             "        SAMLResponse handled successfully by POST") if $this->{Saml}{ debug };
 
-            my $assertion = Net::SAML2::Protocol::Assertion->new_from_xml(
+            my $assertion = eval { Net::SAML2::Protocol::Assertion->new_from_xml(
                 xml         => $xml,
                 key_file    => $this->{Saml}{sp_signing_key},
                 cacert      => $this->{Saml}{cacert},
-            );
+            ) };
+            my $assertion_err = $@;
+
+            if (!$assertion) {
+                $assertion_err ||= 'unknown assertion failure';
+
+                Foswiki::Func::writeDebug(
+                    "    SAMLResponse Assertion verification failed: $assertion_err");
+                throw Foswiki::OopsException( 'samllogincontrib',
+                    status => 500, web => $web, topic => $topic,
+                    params => [ 'login', 'Response Assertion verification failed', $assertion_err, '' ] );
+            }
 
             if ( $this->{Saml}{ debug } ){
                 Foswiki::Func::writeDebug("        Assertion extracted from SAMLResponse XML");
