@@ -595,7 +595,7 @@ sub samlLogoutResponse
             Foswiki::Func::writeDebug(
                 "        Logout InResponseTo - " . $logout->in_response_to) if $this->{Saml}{ debug };
             Foswiki::Func::writeDebug(
-                "        Logout Success Status - $logout->{issuer}") if $this->{Saml}{ debug };
+                "        Logout Success Status - " . $logout->issuer) if $this->{Saml}{ debug };
         }
     }
     else {
@@ -606,8 +606,8 @@ sub samlLogoutResponse
                     web => $web,
                     topic => $topic,
                     params => [ 'logout', 'Logout Failure',
-                                "Status: $logout->{status}",
-                                "Additional Info: $logout->{substatus}",] );
+                                "Status: " . $logout->status,
+                                "Additional Info: " . ($logout->substatus // ''),] );
 
         Foswiki::Func::writeDebug(
             "        Logout Failed Status") if $this->{Saml}{ debug };
@@ -705,8 +705,8 @@ sub samlCallback {
 
             if ( $this->{Saml}{ debug } ){
                 Foswiki::Func::writeDebug("        Assertion extracted from SAMLResponse XML");
-                Foswiki::Func::writeDebug("            InResponseTo: $assertion->{ in_response_to }");
-                Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
+                Foswiki::Func::writeDebug("            InResponseTo: " . $assertion->in_response_to);
+                Foswiki::Func::writeDebug("            SessionIndex: " . $assertion->session);
             }
 =pod
             Verify that the response was related to the request
@@ -726,15 +726,15 @@ sub samlCallback {
                             topic => $topic,
                             params => [ 'login', 'InResponseTo Mismatch',
                                         "Request id: $saml_request_id",
-                                        "InResponseTo $assertion->{in_response_to}",] );
+                                        "InResponseTo " . $assertion->in_response_to,] );
 
                 # Always print this in debug as the chances of this occuring is rare
                 Foswiki::Func::writeDebug("        SAML assertion is invalid");
                 Foswiki::Func::writeDebug("            Issuer:       $issuer");
                 Foswiki::Func::writeDebug("            InResponseTo: $saml_request_id");
-                Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
-                Foswiki::Func::writeDebug("            NotBefore:    $assertion->{ not_before }");
-                Foswiki::Func::writeDebug("            NotAfter:     $assertion->{ not_after }");
+                Foswiki::Func::writeDebug("            SessionIndex: " . $assertion->session);
+                Foswiki::Func::writeDebug("            NotBefore:    " . $assertion->not_before);
+                Foswiki::Func::writeDebug("            NotAfter:     " . $assertion->not_after);
 
                 $query->method($origmethod);
                 Foswiki::Func::writeDebug("            Redirect: $origurl") if $this->{Saml}{ debug };
@@ -755,8 +755,8 @@ sub samlCallback {
                     }
                 }
 
-                Foswiki::Func::writeDebug("            Assertion NameID $assertion->{nameid}")
-                    if defined $assertion->{nameid} && $this->{Saml}{ debug };
+                Foswiki::Func::writeDebug("            Assertion NameID " . $assertion->nameid)
+                    if defined $assertion->nameid && $this->{Saml}{ debug };
 
                 my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
 
@@ -767,7 +767,7 @@ sub samlCallback {
                 my $loginName = $session->{users}->getLoginName($cuid);
 
                 my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
-                Foswiki::Func::setSessionValue('saml_session_index', $assertion->{ session });
+                Foswiki::Func::setSessionValue('saml_session_index', $assertion->session);
 
                 Foswiki::Func::writeDebug("    Login Name: $loginName") if $this->{Saml}{ debug };
 
@@ -1127,7 +1127,7 @@ sub login {
         );
 
         Foswiki::Func::writeDebug("    Net::SAML2::IdP created from url") if $this->{Saml}{ debug };
-        Foswiki::Func::writeDebug("        Entity ID: $idp->{ entityid }") if $this->{Saml}{ debug };
+        Foswiki::Func::writeDebug("        Entity ID: " . $idp->entityid) if $this->{Saml}{ debug };
 
         # Important not to return as XML here as we need to track the id for later verification
         my $authnreq = Net::SAML2::Protocol::AuthnRequest->new(
