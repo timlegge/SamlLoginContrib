@@ -28,7 +28,7 @@ TemplateLogin manager.
 
 use strict;
 use warnings;
-use Net::SAML2 0.78;
+use Net::SAML2 0.89;
 use Net::SAML2::XML::Sig;
 use URN::OASIS::SAML2 qw(:bindings :urn);
 use MIME::Base64 qw/ decode_base64 /;
