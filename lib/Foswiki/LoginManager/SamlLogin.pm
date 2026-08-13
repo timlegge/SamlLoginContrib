@@ -1178,11 +1178,9 @@ sub getMetadata {
     my $org_display_name    = $Foswiki::cfg{Saml}{org_display_name} || 'Foswiki Saml Application';
     my $org_contact         = $Foswiki::cfg{Saml}{org_contact} || $Foswiki::cfg{WebMasterEmail};
     my $error_url           = $Foswiki::cfg{Saml}{error_url};
-    my $slo_url_soap        = $Foswiki::cfg{Saml}{slo_url_soap} || '';
     my $slo_url_redirect    = $Foswiki::cfg{Saml}{slo_url_redirect};
     my $slo_url_post        = $Foswiki::cfg{Saml}{slo_url_post};
     my $acs_url_post        = $Foswiki::cfg{Saml}{acs_url_post};
-    my $acs_url_artifact    = $Foswiki::cfg{Saml}{acs_url_artifact};
     my $url                 = $Foswiki::cfg{Saml}{url} || $Foswiki::cfg{Saml}{DefaultUrlHost};
 
     my $sp = Net::SAML2::SP->new(
@@ -1199,24 +1197,14 @@ sub getMetadata {
         {
             Binding     => BINDING_HTTP_POST,
             Location    => $url . $slo_url_post,
-        },
-        {
-            Binding     => BINDING_HTTP_ARTIFACT,
-            Location    => $url . $slo_url_soap,
         }],
         assertion_consumer_service => [
         {
             Binding     => BINDING_HTTP_POST,
             Location    => $url . $acs_url_post,
-            isDefault   => 'false',
+            isDefault   => 'true',
             # optionally
             index       => 1,
-        },
-        {
-            Binding     => BINDING_HTTP_ARTIFACT,
-            Location    => $url . $acs_url_artifact,
-            isDefault   => 'true',
-            index       => 2,
         }],
         error_url => $error_url,
 
