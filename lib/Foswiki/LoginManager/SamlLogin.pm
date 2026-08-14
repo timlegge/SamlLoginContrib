@@ -766,13 +766,13 @@ sub samlCallback {
                 my $wikiname = $session->{users}->getWikiName($cuid);
                 my $loginName = $session->{users}->getLoginName($cuid);
 
-                my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
-                Foswiki::Func::setSessionValue('saml_session_index', $assertion->session);
-
                 Foswiki::Func::writeDebug("    Login Name: $loginName") if $this->{Saml}{ debug };
 
                 $this->userLoggedIn($loginName);
                 #    $session->inContext('authenticated');
+
+                Foswiki::Func::setSessionValue('saml_session_index', $assertion->session);
+
                 $session->logger->log({
                     level    => 'info',
                     action   => 'login',
