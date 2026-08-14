@@ -475,7 +475,7 @@ sub samlLogoutResponse
             url                             => $idp->slo_url(
                                                 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
             key                             => $this->{Saml}{sp_signing_key},
-            cert                            => $idp->{certs}{'signing'},
+            cert                            => $idp->cert('signing'),
             param                           => 'SAMLResponse',
             sls_force_lcase_url_encoding    => $this->{Saml}{sls_force_lcase_url_encoding},
             sls_double_encoded_response     => $this->{Saml}{sls_double_encoded_response}
@@ -993,7 +993,6 @@ sub _logoutUrl {
     Foswiki::Func::writeDebug("    Saml: logouturl logoutreq: ", $logoutreq) if $this->{Saml}{ debug };
     my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $this->{Saml}{ sp_signing_key },
-              cert => $this->{Saml}{ sp_signing_cert },
               destination   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
               param => 'SAMLRequest',
               url   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
@@ -1148,7 +1147,6 @@ sub login {
         # FIXME Support HTTP-POST
         my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $this->{Saml}{ sp_signing_key },
-              cert => $this->{Saml}{ sp_signing_cert },
               param => 'SAMLRequest',
               url => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
         );
