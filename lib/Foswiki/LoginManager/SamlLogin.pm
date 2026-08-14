@@ -810,7 +810,8 @@ sub samlCallback {
                 )
                 {
                     Foswiki::Func::writeDebug("    UserTopic Exists update form for: $Foswiki::cfg{UsersWebName}.$wikiname") if $this->{Saml}{ debug };
-                    $session->{'users'}->setEmails($cuid, $assertion->attributes->{'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'}[0]);
+                    my $email = $this->extractEmail($assertion->attributes);
+                    $session->{'users'}->setEmails($cuid, $email) if $email ne '';
                     $this->setUserFields($cuid, $assertion->attributes);
                 } else {
                     Foswiki::Func::writeDebug("    UserTopic does not exists for: $Foswiki::cfg{UsersWebName}.$wikiname") if $this->{Saml}{ debug };
