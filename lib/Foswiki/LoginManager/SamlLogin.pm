@@ -1216,6 +1216,40 @@ sub getMetadata {
 
 =begin TML
 
+---++ StaticMethod _escapeAttribute($value) => $string
+
+Neutralise an IdP supplied attribute value before it is written into a user
+topic.  Attribute values come from the IdP, and in many directories the user
+is able to edit their own - display name, job title, phone - so they must not
+be able to introduce Foswiki markup or HTML into the topic they land in.
+
+=Foswiki::entityEncode= is the core encoder behind =%ENCODE{type="entities"}%=.
+It covers the TML specials - percent, vertical bar, square brackets, underscore,
+star, equals, dollar, at - along with the HTML specials and the non printable
+control characters.  It leaves newlines alone by default, so they are added
+through its =$extra= argument the same way =%ENCODE{type="html"}%= does;
+otherwise a value could break out of the bullet list or the META line it is
+written to.
+
+Note that the store's own =dataEncode= is not enough here.  It escapes the
+=META:FIELD= line so it parses correctly, but =_readKeyValues= reverses that
+on read, so the value reaches the renderer raw.
+
+An undefined value - the attribute was not in the assertion - becomes the
+empty string.
+
+=cut
+
+sub _escapeAttribute {
+    my $value = shift;
+
+    return '' unless defined $value;
+
+    return Foswiki::entityEncode( $value, "\n\r" );
+}
+
+=begin TML
+
 ---++ StaticMethod setUserFields ($session, $user, @emails)
 
 =cut
@@ -1241,7 +1275,7 @@ sub setUserFields {
                 'FIELD',
                 {
                     name       => $key,
-                    value      => $attributes->{${$field_map}{$key}}[0],
+                    value      => _escapeAttribute($attributes->{${$field_map}{$key}}[0]),
                     title      => $key,
                     attributes => 'h'
                 }
@@ -1254,7 +1288,8 @@ sub setUserFields {
         unless ( $text =~ s/^(\s+\*\s+First Name:\s*).*$/$1$attributes->{fname}/mi ) {
             foreach my $key (keys %$field_map) {
                 if ($key =~ /Email/) { next;}
-                $text .= "\n   * $key: $attributes->{${$field_map}{$key}}[0]\n";
+                my $value = _escapeAttribute($attributes->{${$field_map}{$key}}[0]);
+                $text .= "\n   * $key: $value\n";
             }
         }
         $topicObject->text($text);
