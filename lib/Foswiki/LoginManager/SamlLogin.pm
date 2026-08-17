@@ -1285,10 +1285,13 @@ sub setUserFields {
     else {
         # otherwise use the topic text
         my $text = $topicObject->text() || '';
-        unless ( $text =~ s/^(\s+\*\s+First Name:\s*).*$/$1$attributes->{fname}/mi ) {
-            foreach my $key (keys %$field_map) {
-                if ($key =~ /Email/) { next;}
-                my $value = _escapeAttribute($attributes->{${$field_map}{$key}}[0]);
+
+        foreach my $key (keys %$field_map) {
+            if ($key =~ /Email/) { next;}
+
+            my $value = _escapeAttribute($attributes->{${$field_map}{$key}}[0]);
+
+            unless ( $text =~ s/^([ \t]*\*[ \t]+\Q$key\E:[ \t]*).*$/$1$value/mi ) {
                 $text .= "\n   * $key: $value\n";
             }
         }
