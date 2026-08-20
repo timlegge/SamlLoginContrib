@@ -110,6 +110,48 @@ sub _wikiNameOf {
     return Foswiki::Func::getWikiName($cUID) || $loginName;
 }
 
+# The store is the only copy of the assertion attributes: it lives under
+# {WorkingDir}, is not versioned, is not part of a topic backup, and - unlike
+# an Ldap cache - cannot be rebuilt, because the Identity Provider describes a
+# user only while that user is logging in.  Deleting it would otherwise blank
+# every user's page until each of them happened to log in again.
+#
+# The UserForm that setUserFields writes is the durable copy of the same
+# values, so fall back to reading that.  It only carries the fields named in
+# {Saml}{AttributeMap}, so $attr(...) for an unmapped attribute stays empty on
+# this path.
+sub _attributesFromForm {
+    my $wikiName = shift;
+
+    my $map = $Foswiki::cfg{Saml}{AttributeMap};
+    return undef unless ref($map) eq 'HASH' && keys %$map;
+    return undef unless defined $wikiName && $wikiName ne '';
+
+    my $usersWeb = $Foswiki::cfg{UsersWebName};
+    return undef unless Foswiki::Func::topicExists( $usersWeb, $wikiName );
+
+    my ($meta) = Foswiki::Func::readTopic( $usersWeb, $wikiName );
+    return undef unless $meta;
+
+    my $personDataForm = $Foswiki::cfg{Saml}{PersonDataForm} || 'UserForm';
+    my $formName = $meta->getFormName();
+    return undef unless $formName && $formName =~ /$personDataForm/;
+
+    my $attributes = {};
+    foreach my $field ( keys %$map ) {
+        my $entry = $meta->get( 'FIELD', $field );
+        next unless $entry && defined $entry->{value} && $entry->{value} ne '';
+
+        # setUserFields entity encoded these on the way in.  Decode, so that
+        # the value here looks exactly as the assertion delivered it and is
+        # encoded once rather than twice on the way back out.
+        $attributes->{ $map->{$field} } =
+          [ Foswiki::entityDecode( $entry->{value} ) ];
+    }
+
+    return keys %$attributes ? $attributes : undef;
+}
+
 # $FirstName style tokens come from the keys of {Saml}{AttributeMap}, so a
 # format string is written in terms of the same field names the UserForm uses
 # rather than in raw urn:oid attribute names.
@@ -180,16 +222,23 @@ sub _handleSaml {
     $format = '$FirstName $LastName' unless defined $format;
 
     my $loginName = _loginNameOf($who);
-    my $attributes =
-      defined $loginName ? _getStore()->get($loginName) : undef;
+    my $wikiName = defined $loginName ? _wikiNameOf($loginName) : $who;
+
+    my $attributes;
+    $attributes = _getStore()->get($loginName) if defined $loginName;
+
+    # The store wins when it has something: it holds every attribute the
+    # assertion carried, not just the mapped ones, and it is refreshed on
+    # every login.
+    $attributes = _attributesFromForm($wikiName) unless $attributes;
 
     return defined $params->{default} ? $params->{default} : ''
       unless $attributes;
 
     my $result = _expandTokens(
         $format, $attributes,
-        loginName => $loginName,
-        wikiName  => _wikiNameOf($loginName),
+        loginName => defined $loginName ? $loginName : '',
+        wikiName  => $wikiName,
     );
 
     return Foswiki::Func::decodeFormatTokens($result);
