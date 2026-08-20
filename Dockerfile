@@ -203,6 +203,14 @@ RUN cd /var/www/foswiki && \
     -set "{SolrPlugin}{EnableOnSaveUpdates}=1" \
     -set "{SolrPlugin}{EnableOnRenameUpdates}=1" \
     -set "{SolrPlugin}{EnableOnUploadUpdates}=1" \
+    `# Main.WikiUsers is where the attributes end up being read: its stock` \
+    `# template lists the users by walking the topics, the Solr one asks Solr` \
+    `# for everything whose form matches {SolrPlugin}{PersonDataForm}, which` \
+    `# is what the indexTopicHandler above feeds.  Both templates ship with` \
+    `# SolrPlugin.  Every other rule here is AutoTemplatePlugin's own default` \
+    `# - the whole hash has to be given because configure refuses to set a` \
+    `# single key inside it, and one rejected key aborts the entire -save.` \
+    -set "{Plugins}{AutoTemplatePlugin}{ViewTemplateRules}={ ChangeEmailAddress => q(ChangeEmailAddressView), ChangePassword => q(ChangePasswordView), ResetPassword => q(ResetPasswordView), SiteChanges => q(SiteChangesView), UserRegistration => q(UserRegistrationView), WebAtom => q(WebAtomView), WebChanges => q(WebChangesView), WebCreateNewTopic => q(WebCreateNewTopicView), WebIndex => q(WebIndexView), WebRss => q(WebRssView), WebSearch => q(SolrSearchView), WebSearchAdvanced => q(WebSearchAdvancedView), WebTopicList => q(WebTopicListView), WikiGroups => q(WikiGroupsView), WikiUsers => q(SolrWikiUsersView) }" \
     `# --- user topic creation -------------------------------------------` \
     `# SamlLoginContrib never creates Main.<WikiName>; NewUserPlugin does, on` \
     `# the first page render after the callback has already redirected.  The` \
