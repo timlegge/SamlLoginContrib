@@ -101,7 +101,11 @@ The SAML Service Provider (SP) implementation means that no usernames or passwor
 
 ---++ Updating User Form with data from the SAML2 Assertion Attributes
 
-Upon initial login the user is registered and the user's topic is created.  Unfortunately, the topic is not available at that point so the SAML2 attributes are not saved in the user's topic.  Upon the next login (and all subesquent) the assertion attributes are written to the UserForm in the user's topic.  As the SAML2 attributes may not match the Foswiki User form data attributes the $Foswiki::cfg{Saml}{AttributeMap} contains a HASH of Foswiki to SAML2 attribute mappings.
+Upon initial login the user is registered with the user mapping, but the user's topic is *not* created - !SamlLoginContrib never writes it. Creating it is !NewUserPlugin's job, and it does so from =%<nop>SYSTEMWEB%.NewUserTemplate= on the _next_ request, after the assertion has already been processed. So when =samlCallback= reaches the point where it would fill in the form, the topic does not exist yet and it has nothing to write to. Upon the next login (and all subsequent ones) the topic is there and the assertion attributes are written to the !UserForm in the user's topic.
+
+As the SAML2 attribute names will not generally match the Foswiki !UserForm field names, =$Foswiki::cfg{Saml}{AttributeMap}= holds a HASH keyed by !UserForm field name, whose values are the assertion attribute names those fields are filled from.
+
+The Identity Provider sends the attributes only once, at login, so they are also kept in a small store of their own. That store is written on every login including the first, which is what makes the values available before the user topic exists. See !SamlLoginPlugin for the =%<nop>SAML{...}%= and =%<nop>SAMLUSERS{...}%= macros that read it.
 
 ---++ References
    * SAML Wiki at Oasis-Open.org: https://wiki.oasis-open.org/security/FrontPage
