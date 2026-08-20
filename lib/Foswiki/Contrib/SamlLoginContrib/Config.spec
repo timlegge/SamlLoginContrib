@@ -173,4 +173,20 @@ $Foswiki::cfg{Saml}{acs_url_post} = '/bin/login?saml=acs';
 # Used only if you are generating metadata.xml automatically
 $Foswiki::cfg{Saml}{acs_url_artifact} = '';
 
+# **BOOLEAN LABEL="Store Assertion Attributes"**
+# Keep the attributes of each assertion in a small database under the working
+# directory, so that they can be read back later by the %SAML{...}% and
+# %SAMLUSERS{...}% macros and handed to Solr, without having to be written into
+# the user's topic.
+# This is the only way the attributes of the *first* login can be shown: the
+# user topic is created by NewUserPlugin on the request after the assertion has
+# been consumed, which is too late for the login manager to fill it in.
+# Requires the SamlLoginPlugin to be enabled for anything to read the store.
+$Foswiki::cfg{Saml}{AttributeStore} = 1;
+
+# **PATH LABEL="Assertion Attribute Store" EXPERT**
+# Where to keep the attribute database. Leave empty to use
+# {WorkingDir}/work_areas/SamlLoginContrib/attributes.db
+$Foswiki::cfg{Saml}{AttributeStoreFile} = '';
+
 1;

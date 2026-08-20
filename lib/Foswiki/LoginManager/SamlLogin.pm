@@ -764,6 +764,25 @@ sub samlCallback {
                 my $wikiname = $session->{users}->getWikiName($cuid);
                 my $loginName = $session->{users}->getLoginName($cuid);
 
+                # Keep the assertion attributes somewhere the rest of the wiki
+                # can reach them.  The Identity Provider tells us this once and
+                # never again, and on the login that creates the user there is
+                # no user topic yet to write them into - see the topicExists
+                # test further down.  Stored here they are available to
+                # %SAML{...}% and to Solr from the very first login.
+                if ( $Foswiki::cfg{Saml}{AttributeStore} ) {
+                    eval {
+                        require Foswiki::Contrib::SamlLoginContrib::AttributeStore;
+                        Foswiki::Contrib::SamlLoginContrib::AttributeStore->new()
+                          ->put( $loginName, $assertion->attributes );
+                    };
+                    # A store we cannot write is not a reason to fail a login
+                    # that has otherwise succeeded.
+                    Foswiki::Func::writeWarning(
+                        "Saml: cannot store attributes for $loginName: $@")
+                      if $@;
+                }
+
                 Foswiki::Func::writeDebug("    Login Name: $loginName") if $this->{Saml}{ debug };
 
                 $this->userLoggedIn($loginName);
