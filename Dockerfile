@@ -195,6 +195,14 @@ RUN cd /var/www/foswiki && \
     `# the *first* login's attributes can ever be shown - the user topic does` \
     `# not exist while the assertion is being consumed.` \
     -set "{Saml}{AttributeStore}=1" \
+    `# SolrPlugin reindexes a topic as it is saved, renamed or attached to only` \
+    `# if these are on; all three default to 0, which leaves a user topic out` \
+    `# of Solr until the next full tools/solrjob run.  iwatch triggers that run` \
+    `# on any data/*.txt write, so these only close the gap in between - but` \
+    `# that gap is exactly the first login, when the user topic is created.` \
+    -set "{SolrPlugin}{EnableOnSaveUpdates}=1" \
+    -set "{SolrPlugin}{EnableOnRenameUpdates}=1" \
+    -set "{SolrPlugin}{EnableOnUploadUpdates}=1" \
     `# --- user topic creation -------------------------------------------` \
     `# SamlLoginContrib never creates Main.<WikiName>; NewUserPlugin does, on` \
     `# the first page render after the callback has already redirected.  The` \
