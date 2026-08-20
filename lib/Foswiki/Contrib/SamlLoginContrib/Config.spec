@@ -189,4 +189,10 @@ $Foswiki::cfg{Saml}{AttributeStore} = 1;
 # {WorkingDir}/work_areas/SamlLoginContrib/attributes.db
 $Foswiki::cfg{Saml}{AttributeStoreFile} = '';
 
+# **STRING LABEL="Person Data Form" EXPERT**
+# The form a topic must have before the Solr indexer will attach the stored
+# assertion attributes to it. Matched as a regular expression against the
+# topic's form name.
+$Foswiki::cfg{Saml}{PersonDataForm} = 'UserForm';
+
 1;

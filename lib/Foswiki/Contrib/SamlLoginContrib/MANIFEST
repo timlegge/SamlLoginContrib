@@ -6,4 +6,7 @@ lib/Foswiki/Contrib/SamlLoginContrib/DEPENDENCIES 0644
 lib/Foswiki/Contrib/SamlLoginContrib.pm 0644
 lib/Foswiki/LoginManager/SamlLogin.pm 0644
 templates/oopssamllogincontrib.tmpl 0644
+data/System/NewSamlUserTemplate.txt 0644 Template for user topics created for SAML users
+data/System/SamlUserViewTemplate.txt 0644 View template rendering stored assertion attributes
 lib/Foswiki/Contrib/SamlLoginContrib/AttributeStore.pm 0644 Assertion attribute store
+lib/Foswiki/Plugins/SamlLoginPlugin.pm 0644 Macros and Solr indexing for stored attributes
