@@ -1,0 +1,160 @@
+%META:TOPICINFO{author="ProjectContributor" comment="" date="1787275200" format="1.1" version="1"}%
+%META:TOPICPARENT{name="Plugins"}%
+<!--
+One line description, required for extensions repository catalog.
+   * Set SHORTDESCRIPTION = Renders and indexes the Saml assertion attributes gathered at login
+-->
+---+!! !SamlLoginPlugin
+
+%FORMFIELD{"Description"}%
+
+%TOC%
+
+---++ Overview
+
+This plugin is the rendering half of [[%SYSTEMWEB%.SamlLoginContrib][SamlLoginContrib]]. =Foswiki::LoginManager::SamlLogin= receives the assertion and saves its attributes; this plugin is what lets the rest of the wiki see them. It supplies the =%<nop>SAML{...}%= and =%<nop>SAMLUSERS{...}%= macros and, when [[%SYSTEMWEB%.SolrPlugin][SolrPlugin]] is installed, puts the attributes into each user's Solr document.
+
+It has to be a plugin rather than more of the contrib because registering macros and registering a Solr index handler can only be done from =initPlugin=. This mirrors how the Ldap extensions are split: !LdapContrib does the authentication and the caching, !LdapNgPlugin supplies the macros.
+
+Enable it in =configure= together with the contrib. With the plugin disabled the attributes are still stored, but nothing reads them.
+
+---++ Why the store exists
+
+The Identity Provider sends the attributes exactly once, at login, and never again. On the login that first registers a user there is no user topic yet to write them into - !NewUserPlugin creates that on the _next_ request - so the login manager has nowhere to put them and the form fields stay empty until the second login.
+
+Saving them separately at login solves that: from the very first login the values are available to these macros and to Solr, whether or not the user topic exists. See [[%SYSTEMWEB%.SamlLoginContrib][SamlLoginContrib]] for the mechanics.
+
+---++ Syntax
+
+---+++ =%<nop>SAML{...}%=
+
+Expands the assertion attributes of one user.
+
+| *Parameter* | *Description* | *Default* |
+| ="..."= or =user= | Who to look up. A !WikiName, a =%USERSWEB%.WikiName= or a login name. | the current topic |
+| =format= | How to render the attributes. See [[#FormatTokens][Format tokens]] below. | ==$FirstName $LastName== |
+| =default= | Returned when nothing is known about the user. | empty string |
+
+Because the default subject is the current topic, the bare =%<nop>SAML{}%= renders the attributes of the user whose topic is being viewed - which is what makes it useful in a view template.
+
+---+++ =%<nop>SAMLUSERS{...}%=
+
+Lists every user who has logged in through SAML, sorted by !WikiName.
+
+| *Parameter* | *Description* | *Default* |
+| =format= | How to render each user. | ==   * $displayName== |
+| =separator= or =sep= | Put between entries. | ==$n== |
+| =header= | Prepended to the list. | empty string |
+| =footer= | Appended to the list. | empty string |
+| =include= | Only list users whose !WikiName matches this regular expression. | all |
+| =exclude= | Skip users whose !WikiName matches this regular expression. | none |
+| =casesensitive= | Whether =include= and =exclude= are case sensitive. | =on= |
+| =hideunknown= | Skip users who have no topic in %USERSWEB%. | =on= |
+| =limit= | List at most this many users. | all |
+| =skip= | Skip this many users first. | =0= |
+
+=$count= is replaced with the number of entries listed, anywhere in =header=, =footer= or =format=.
+
+=header= and =footer= are written even when no user matches, so a =header= naming table columns produces an empty table rather than nothing. Use =$count= in the =footer= if you need to tell the two apart.
+
+#FormatTokens
+---++ Format tokens
+
+Every field named in =$Foswiki::cfg{Saml}{AttributeMap}= becomes a token of the same name. With the default map, =$FirstName= expands to the attribute that map points at, =$Email= to the mail attribute, and so on. Renaming a field in the map renames the token.
+
+| *Token* | *Expands to* |
+| =$&lt;FieldName&gt;= | the assertion attribute the !AttributeMap fills that !UserForm field from |
+| =$attr(name)= | any attribute by its raw name, e.g. =$attr(urn:oid:2.5.4.42)=, including ones the map does not mention |
+| =$loginName= | the user's login name |
+| =$wikiName= | the user's !WikiName |
+| =$displayName= | =%<nop>SAMLUSERS%= only: a link to the user topic, or the !WikiName with =&lt;nop&gt;= if there is no topic |
+| =$index= | =%<nop>SAMLUSERS%= only: the position of the entry in the unlimited list |
+| =$count= | =%<nop>SAMLUSERS%= only: the number of entries listed |
+
+The usual [[%SYSTEMWEB%.FormatTokens][format tokens]] - =$n=, =$percnt=, =$dollar= and friends - are expanded last.
+
+A token whose attribute the assertion did not carry expands to the empty string, so a =format= may name attributes some users lack.
+
+---++ Examples
+
+Render a user topic from the stored attributes. This is what [[%SYSTEMWEB%.SamlUserViewTemplate][SamlUserViewTemplate]] does:
+
+<verbatim class="tml">
+---+!! %SAML{"%BASETOPIC%" format="$FirstName $LastName" default="<nop>%BASETOPIC%"}%
+%SAML{"%BASETOPIC%"
+  format="
+| *Email* | $Email |
+| *Telephone* | $Telephone |
+"
+  default="This user has not logged in through SAML yet."
+}%
+</verbatim>
+
+A directory of everyone who has logged in:
+
+<verbatim class="tml">
+%SAMLUSERS{
+  header="| *Name* | *Email* | *Telephone* |$n"
+  format="| $displayName | $Email | $Telephone |"
+  footer="$n%BR%$count people"
+}%
+</verbatim>
+
+Reach an attribute that is not in the map at all:
+
+<verbatim class="tml">
+%SAML{"%WIKINAME%" format="$attr(urn:oid:2.5.4.11)" default="(no department)"}%
+</verbatim>
+
+---++ Security
+
+Attribute values come from the Identity Provider, so they are not trusted. They are entity encoded before being returned, which is why a =%<nop>SEARCH{...}%= arriving in a telephone number is displayed rather than expanded with the rights of whoever views the topic.
+
+Values handed to Solr are _not_ encoded: a document field holding =user&amp;#64;example.org= would not match a search for =user@example.org=.
+
+The macros do not check access rights on the user topic. Anyone who can view a topic containing =%<nop>SAML{...}%= sees the attributes it names. If your assertions carry anything you would not publish, do not name it in a =format=.
+
+---++ Solr indexing
+
+When !SolrPlugin is enabled, the plugin registers an index handler that adds the stored attributes to a user topic's Solr document, so a colleague can be found by phone number or department even when the values were never written into the topic. For each field in the !AttributeMap it sets =field_&lt;Name&gt;_s= and =field_&lt;Name&gt;_search=. Only topics in %USERSWEB% whose form matches =$Foswiki::cfg{Saml}{PersonDataForm}= are touched.
+
+The plugin also makes =$Foswiki::cfg{SolrPlugin}{PersonDataForm}= readable by =%<nop>QUERY{...}%=. !SolrWikiUsersViewTemplate builds its search filter from that setting, and !SolrPlugin does not make it accessible itself, so without this the user listing sends a malformed query to Solr.
+
+---++ Settings
+
+The plugin reads the settings of [[%SYSTEMWEB%.SamlLoginContrib][SamlLoginContrib]]; see =configure= for all of them. These three matter here:
+
+| *Setting* | *Description* |
+| ={Saml}{AttributeMap}= | Which !UserForm field is filled from which assertion attribute. Also decides the format tokens. |
+| ={Saml}{AttributeStore}= | Whether the attributes are saved at login. With this off both macros find nothing. |
+| ={Saml}{PersonDataForm}= | The form a topic must have before the Solr indexer attaches attributes to it. |
+
+---++ If the store is empty
+
+=%<nop>SAML{...}%= falls back to reading the values [[%SYSTEMWEB%.SamlLoginContrib][SamlLoginContrib]] wrote into the user's !UserForm, so user topics keep rendering even if the store is deleted. Attributes that are not in the !AttributeMap were never written to the form, so =$attr(...)= for one of those is empty on the fallback path.
+
+=%<nop>SAMLUSERS{...}%= has no such fallback - it lists what the store holds, so a deleted store leaves it empty until people log in again. The store is rebuilt one user at a time, as each logs in.
+
+---++ Installation
+
+This plugin ships with [[%SYSTEMWEB%.SamlLoginContrib][SamlLoginContrib]]; installing the contrib installs it. Enable it in =configure=.
+
+---++ Info
+
+|  Author: | TimothyLegge |
+|  Copyright: | &copy; 2026, TimothyLegge, All Rights Reserved |
+|  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
+|  Home: | http://foswiki.org/Extensions/SamlLoginContrib |
+|  Support: | http://foswiki.org/Support/SamlLoginContrib |
+
+%META:FORM{name="PackageForm"}%
+%META:FIELD{name="Author" title="Author" value="TimothyLegge"}%
+%META:FIELD{name="Version" title="Version" value="1.00"}%
+%META:FIELD{name="Release" title="Release" value="20 Aug 2026"}%
+%META:FIELD{name="Description" title="Description" value="Renders and indexes the Saml assertion attributes gathered at login"}%
+%META:FIELD{name="Repository" title="Repository" value="https://github.com/timlegge/SamlLoginContrib"}%
+%META:FIELD{name="ExtensionClassification" title="ExtensionClassification" value="Admin, Security"}%
+%META:FIELD{name="Copyright" title="Copyright" value="&copy; 2026, TimothyLegge, All Rights Reserved"}%
+%META:FIELD{name="License" title="License" value="GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]])"}%
+%META:FIELD{name="Home" title="Home" value="http://foswiki.org/Extensions/SamlLoginContrib"}%
+%META:FIELD{name="Support" title="Support" value="http://foswiki.org/Support/SamlLoginContrib"}%

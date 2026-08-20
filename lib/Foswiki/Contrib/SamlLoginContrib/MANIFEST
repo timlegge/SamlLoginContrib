@@ -10,3 +10,4 @@ data/System/NewSamlUserTemplate.txt 0644 Template for user topics created for SA
 data/System/SamlUserViewTemplate.txt 0644 View template rendering stored assertion attributes
 lib/Foswiki/Contrib/SamlLoginContrib/AttributeStore.pm 0644 Assertion attribute store
 lib/Foswiki/Plugins/SamlLoginPlugin.pm 0644 Macros and Solr indexing for stored attributes
+data/System/SamlLoginPlugin.txt 0644 Documentation for the SamlLoginPlugin macros
