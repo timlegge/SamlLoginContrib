@@ -156,8 +156,77 @@ RUN apk update; \
     apk del --purge make musl-dev db-dev expat-dev openssl-dev \
         imagemagick-dev krb5-dev libxml2-dev gcc git perl-dev
 
+# SP signing material.  {Saml}{sp_signing_*} and {Saml}{cacert} point into
+# /var/www/foswiki/saml, which nothing else creates - without it the SP cannot
+# sign the AuthnRequest or its own metadata.  Self-signed is fine for a dev
+# container; mount real key material over this directory for anything else.
+RUN mkdir -p /var/www/foswiki/saml && \
+    openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+        -keyout /var/www/foswiki/saml/sign.key \
+        -out /var/www/foswiki/saml/sign.pem \
+        -subj '/CN=docker-foswiki.local/O=Foswiki' && \
+    cp /var/www/foswiki/saml/sign.pem /var/www/foswiki/saml/cacert.pem && \
+    chown -R nginx:nginx /var/www/foswiki/saml && \
+    chmod 600 /var/www/foswiki/saml/sign.key
+
 RUN cd /var/www/foswiki && \
-    tools/configure -save -set {Register}{AllowLoginName}='1';
+    tools/configure -save \
+    `# --- authentication ------------------------------------------------` \
+    -set "{LoginManager}=Foswiki::LoginManager::SamlLogin" \
+    `# The IdP is the only authenticator; Foswiki must not keep passwords of` \
+    `# its own.  It also has to be 'none' because mapUser calls addUser with an` \
+    `# undef password on every login - with a password manager in place that` \
+    `# throws 'User exists in the Password Manager' the second time round.` \
+    -set "{PasswordManager}=none" \
+    `# Must stay 1.  With 0, _isAlreadyMapped returns 0 unconditionally, so` \
+    `# every login after the user topic exists re-enters the wikiname` \
+    `# allocation loop and maps the same login to WikiName2, leaving the` \
+    `# original user topic orphaned with empty form fields.` \
+    -set "{Register}{AllowLoginName}=1" \
+    -set "{Register}{EnableNewUserRegistration}=0" \
+    `# --- rendering and indexing of the stored attributes ---------------` \
+    `# The plugin half of SamlLoginContrib: supplies %SAML{...}% and` \
+    `# %SAMLUSERS{...}%, and registers the Solr indexTopicHandler that puts the` \
+    `# stored attributes into a user topic's Solr document even when they were` \
+    `# never written into its UserForm.` \
+    -set "{Plugins}{SamlLoginPlugin}{Enabled}=1" \
+    -set "{Plugins}{SamlLoginPlugin}{Module}=Foswiki::Plugins::SamlLoginPlugin" \
+    `# Keep each assertion's attributes in {WorkingDir}. This is the only way` \
+    `# the *first* login's attributes can ever be shown - the user topic does` \
+    `# not exist while the assertion is being consumed.` \
+    -set "{Saml}{AttributeStore}=1" \
+    `# --- user topic creation -------------------------------------------` \
+    `# SamlLoginContrib never creates Main.<WikiName>; NewUserPlugin does, on` \
+    `# the first page render after the callback has already redirected.  The` \
+    `# image default is NewLdapUserTemplate, which is not what a SAML site` \
+    `# wants.` \
+    -set "{NewUserPlugin}{NewUserTemplate}=%SYSTEMWEB%.NewSamlUserTemplate" \
+    `# --- SAML service provider -----------------------------------------` \
+    -set "{Saml}{Debug}=1" \
+    -set "{Saml}{issuer}=https://docker-foswiki.local" \
+    -set "{Saml}{url}=https://docker-foswiki.local" \
+    -set "{Saml}{metadata}=http://localhost/saml/metadata.xml" \
+    -set "{Saml}{cacert}=/var/www/foswiki/saml/cacert.pem" \
+    -set "{Saml}{sp_signing_cert}=/var/www/foswiki/saml/sign.pem" \
+    -set "{Saml}{sp_signing_key}=/var/www/foswiki/saml/sign.key" \
+    -set "{Saml}{sign_metatdata}=0" \
+    -set "{Saml}{SupportSLO}=1" \
+    `# --- assertion attribute mapping -----------------------------------` \
+    `# The urn:oid names are the LDAP attributes as sent by an IdP using the` \
+    `# SAML2 URI attribute name format: 2.5.4.42 givenName, 2.5.4.4 sn,` \
+    `# 1.2.840.113549.1.9.1 mail.  These three must agree - WikiNameAttributes` \
+    `# builds the WikiName, EmailAttributes finds the address, and AttributeMap` \
+    `# fills the UserForm.  An unset or empty AttributeMap leaves every form` \
+    `# field blank and says nothing about it in the log.` \
+    -set "{Saml}{WikiNameAttributes}=urn:oid:2.5.4.42,urn:oid:2.5.4.4" \
+    -set "{Saml}{EmailAttributes}=urn:oid:1.2.840.113549.1.9.1" \
+    -set "{Saml}{AttributeMap}={ Email => q(urn:oid:1.2.840.113549.1.9.1), FirstName => q(urn:oid:2.5.4.42), LastName => q(urn:oid:2.5.4.4), OrganisationName => q(OrganisationName), Profession => q(Profession), Telephone => q(Telephone) }" \
+    `# --- redirects ------------------------------------------------------` \
+    `# The ACS URL and the issuer have to match what the IdP was registered` \
+    `# with, so the host cannot be inferred from the request.` \
+    -set "{DefaultUrlHost}=https://docker-foswiki.local" \
+    -set "{ForceDefaultUrlHost}=1" \
+    -set "{PermittedRedirectHostUrls}=https://docker-foswiki.local:8765,https://docker-foswiki.local:8443";
 
 COPY nginx.default.conf /etc/nginx/http.d/default.conf
 COPY docker-entrypoint.sh docker-entrypoint.sh
