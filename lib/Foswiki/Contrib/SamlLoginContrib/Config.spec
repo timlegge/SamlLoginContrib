@@ -73,9 +73,17 @@ $Foswiki::cfg{Saml}{WikiNameAttributes} = 'fname,lname';
 $Foswiki::cfg{Saml}{EmailAttributes} = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress';
 
 # **PERL LABEL="Assertion Attribute Mapping"**
-# Hash of map of Assertion Attributes to Foswiki UserForm Values.
-# The default is an example you will need to adjust the values of the hash to the names
-# used in the assertion attributes
+# Hash mapping Foswiki UserForm field names to the Assertion Attribute names
+# they are filled from.  The keys must match the fields of your UserForm, the
+# values must match the attribute names the IdP actually sends - check them in
+# the login debug output before assuming.
+# The default is an example and matches {WikiNameAttributes} and
+# {EmailAttributes} above; adjust all three together.
+# An IdP using the SAML2 URI attribute name format sends the standard LDAP
+# names instead: urn:oid:2.5.4.42 (givenName), urn:oid:2.5.4.4 (sn),
+# urn:oid:1.2.840.113549.1.9.1 (mail), urn:oid:2.5.4.10 (organizationName),
+# urn:oid:2.5.4.12 (title) and urn:oid:2.5.4.20 (telephoneNumber).
+# Leaving this unset or empty leaves every user topic form field empty.
 $Foswiki::cfg{Saml}{AttributeMap} = {
     FirstName        => 'fname',
     LastName         => 'lname',
