@@ -52,10 +52,11 @@ Lists every user who has logged in through SAML, sorted by !WikiName.
 | =hideunknown= | Skip users who have no topic in %USERSWEB%. | =on= |
 | =limit= | List at most this many users. | all |
 | =skip= | Skip this many users first. | =0= |
+| =zeroresults= | What to write when no user matches, with the same three states as =%<nop>SEARCH%=. =off= suppresses all output; any other text replaces the whole result with that text; unset writes the =header= and =footer= with nothing between them. | unset |
 
 =$count= is replaced with the number of entries listed, anywhere in =header=, =footer= or =format=.
 
-=header= and =footer= are written even when no user matches, so a =header= naming table columns produces an empty table rather than nothing. Use =$count= in the =footer= if you need to tell the two apart.
+=header= and =footer= are written even when no user matches, so a =header= naming table columns produces an empty table rather than nothing. Pass =zeroresults="off"= to suppress that, or =zeroresults="..."= to say something instead. Inside a =zeroresults= text, =$count= and =$index= expand to =0=.
 
 #FormatTokens
 ---++ Format tokens

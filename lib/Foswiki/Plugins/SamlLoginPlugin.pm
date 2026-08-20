@@ -356,10 +356,41 @@ sub _handleSamlUsers {
         last if $limit && scalar(@result) >= $limit;
     }
 
+    if ( !@result ) {
+
+        # The same three states %SEARCH% gives zeroresults: "off" suppresses
+        # the lot, any other text replaces the whole output with that text,
+        # and leaving it unset still writes the header and footer.
+        my $zero = $params->{zeroresults};
+
+        return '' unless Foswiki::Func::isTrue( $zero, 1 );
+
+        unless ( _isSetTrue( $zero, 1 ) ) {
+            my $text = $zero;
+            $text =~ s/\$(?:count|index)\b/0/g;
+            return Foswiki::Func::decodeFormatTokens($text);
+        }
+    }
+
     my $result = $header . join( $separator, @result ) . $footer;
     $result =~ s/\$count\b/scalar(@result)/ge;
 
     return Foswiki::Func::decodeFormatTokens($result);
+}
+
+# Distinguishes a zeroresults= that is a flag from one that is text to print.
+# Foswiki::Search::_isSetTrue does this for %SEARCH% but is private to it.
+sub _isSetTrue {
+    my ( $value, $default ) = @_;
+
+    $default ||= 0;
+
+    return $default unless defined($value);
+
+    $value =~ s/on//gi;
+    $value =~ s/yes//gi;
+    $value =~ s/true//gi;
+    return ($value) ? 0 : 1;
 }
 
 =begin TML
