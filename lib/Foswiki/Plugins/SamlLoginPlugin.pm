@@ -343,7 +343,12 @@ sub indexTopicHandler {
 sub _setField {
     my ( $doc, $name, $value ) = @_;
 
-    $doc->remove_fields($name);
+    # The WebService::Solr::Document Foswiki ships has no remove_fields, so
+    # rebuild the list without this name.  LdapNgPlugin edits the first
+    # matching field in place instead, which leaves the remaining values of a
+    # multi-valued field behind.
+    my @keep = grep { $_->name ne $name } $doc->fields;
+    $doc->fields( \@keep );
     $doc->add_fields( $name => $value );
 
     return;
