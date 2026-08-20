@@ -48,11 +48,32 @@ sub initPlugin {
     {
         Foswiki::Plugins::SolrPlugin::registerIndexTopicHandler(
             \&indexTopicHandler );
+
+        # SolrWikiUsersViewTemplate builds its filter from
+        # %QUERY{"{SolrPlugin}{PersonDataForm}"}%, but SolrPlugin never adds
+        # that key to {AccessibleCFG}, so QUERY returns the empty string and
+        # the filter goes to Solr as "form: web:Main ..." - a syntax error,
+        # and Main.WikiUsers lists nobody.  LdapNgPlugin does the same for its
+        # own keys; do it here so the user listing works on a Saml site.
+        _makeAccessible('{SolrPlugin}{PersonDataForm}');
     }
+
+    _makeAccessible('{Saml}{PersonDataForm}');
 
     undef $store;
 
     return 1;
+}
+
+# Let %QUERY{"{Some}{Key}"}% read a configuration key.  Skips keys that are
+# already listed: under a persistent engine %Foswiki::cfg survives between
+# requests, and initPlugin runs on every one of them.
+sub _makeAccessible {
+    my @keys = @_;
+    my $accessible = $Foswiki::cfg{AccessibleCFG};
+    return unless ref($accessible) eq 'ARRAY';
+    my %seen = map { $_ => 1 } @$accessible;
+    push @$accessible, grep { !$seen{$_} } @keys;
 }
 
 sub finishPlugin {
