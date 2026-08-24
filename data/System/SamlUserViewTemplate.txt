@@ -1,0 +1,19 @@
+%META:TOPICINFO{author="ProjectContributor" comment="" date="1787190000" format="1.1" version="1"}%
+%META:TOPICPARENT{name="SamlLoginContrib"}%
+%TMPL:INCLUDE{"view"}%
+
+%TMPL:DEF{"content"}%
+---+!! %SAML{"%BASETOPIC%" format="$FirstName $LastName" default="<nop>%BASETOPIC%"}%
+
+%SAML{"%BASETOPIC%"
+  format="
+| *Email* | $Email |
+| *Telephone* | $Telephone |
+| *Organisation* | $OrganisationName |
+| *Profession* | $Profession |
+"
+  default="This user has not logged in through SAML yet."
+}%
+
+%TEXT%
+%TMPL:END%

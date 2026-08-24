@@ -764,6 +764,25 @@ sub samlCallback {
                 my $wikiname = $session->{users}->getWikiName($cuid);
                 my $loginName = $session->{users}->getLoginName($cuid);
 
+                # Keep the assertion attributes somewhere the rest of the wiki
+                # can reach them.  The Identity Provider tells us this once and
+                # never again, and on the login that creates the user there is
+                # no user topic yet to write them into - see the topicExists
+                # test further down.  Stored here they are available to
+                # %SAML{...}% and to Solr from the very first login.
+                if ( $Foswiki::cfg{Saml}{AttributeStore} ) {
+                    eval {
+                        require Foswiki::Contrib::SamlLoginContrib::AttributeStore;
+                        Foswiki::Contrib::SamlLoginContrib::AttributeStore->new()
+                          ->put( $loginName, $assertion->attributes );
+                    };
+                    # A store we cannot write is not a reason to fail a login
+                    # that has otherwise succeeded.
+                    Foswiki::Func::writeWarning(
+                        "Saml: cannot store attributes for $loginName: $@")
+                      if $@;
+                }
+
                 Foswiki::Func::writeDebug("    Login Name: $loginName") if $this->{Saml}{ debug };
 
                 $this->userLoggedIn($loginName);
@@ -1250,7 +1269,10 @@ sub _escapeAttribute {
 
 =begin TML
 
----++ StaticMethod setUserFields ($session, $user, @emails)
+---++ ObjectMethod setUserFields ($cUID, $attributes)
+
+Writes the assertion attributes named by {Saml}{AttributeMap} into the user's
+topic.
 
 =cut
 
@@ -1261,41 +1283,96 @@ sub setUserFields {
 
     my $session = $this->{session};
     my $user = $session->{users}->getWikiName($cUID);
+    my $debug = $this->{Saml}{debug};
 
     my $field_map = $Foswiki::cfg{Saml}{AttributeMap};
+
+    Foswiki::Func::writeDebug(
+        "    setUserFields: $Foswiki::cfg{UsersWebName}.$user") if $debug;
+
+    # An unset or empty map is not an error in Perl - keys %$undef is simply
+    # the empty list - so the loops below would run zero times, the topic
+    # would be saved back unchanged and the login would look completely
+    # successful while the user topic kept the empty fields it was created
+    # with from NewUserTemplate.  Say so instead, this is the only place the
+    # missing configuration can be noticed.
+    if ( ref($field_map) ne 'HASH' || !keys %$field_map ) {
+        Foswiki::Func::writeDebug(
+            "    setUserFields: {Saml}{AttributeMap} is unset or empty - no fields"
+          . " written to $Foswiki::cfg{UsersWebName}.$user."
+          . " Set it in configure or LocalSite.cfg" );
+        return;
+    }
 
     my $topicObject =
       Foswiki::Meta->load( $session, $Foswiki::cfg{UsersWebName}, $user );
 
+    my $changed = 0;
+
     if ( $topicObject->get('FORM') ) {
 
-        foreach my $key (keys %$field_map) {
+        foreach my $key (sort keys %$field_map) {
             # use the form if there is one
+            my $attribute = ${$field_map}{$key};
+            my $value = _escapeAttribute($attributes->{$attribute}[0]);
+
+            Foswiki::Func::writeDebug(
+                "        $key <- $attribute: "
+              . ( exists $attributes->{$attribute} ? "'$value'" : 'not in assertion' ) )
+                if $debug;
+
+            # Keep the title and attributes the form definition gave the
+            # field.  They are only defaulted when the field is a new one
+            # that the form doesn't already carry.
+            my $existing = $topicObject->get( 'FIELD', $key ) || {};
+
+            next if defined $existing->{value} && $existing->{value} eq $value;
+
             $topicObject->putKeyed(
                 'FIELD',
                 {
                     name       => $key,
-                    value      => _escapeAttribute($attributes->{${$field_map}{$key}}[0]),
-                    title      => $key,
-                    attributes => 'h'
+                    value      => $value,
+                    title      => defined $existing->{title} ? $existing->{title} : $key,
+                    attributes => defined $existing->{attributes} ? $existing->{attributes} : ''
                 }
             );
+            $changed = 1;
         }
     }
     else {
         # otherwise use the topic text
         my $text = $topicObject->text() || '';
+        my $original = $text;
 
-        foreach my $key (keys %$field_map) {
+        foreach my $key (sort keys %$field_map) {
             if ($key =~ /Email/) { next;}
 
-            my $value = _escapeAttribute($attributes->{${$field_map}{$key}}[0]);
+            my $attribute = ${$field_map}{$key};
+            my $value = _escapeAttribute($attributes->{$attribute}[0]);
+
+            Foswiki::Func::writeDebug(
+                "        $key <- $attribute: "
+              . ( exists $attributes->{$attribute} ? "'$value'" : 'not in assertion' ) )
+                if $debug;
 
             unless ( $text =~ s/^([ \t]*\*[ \t]+\Q$key\E:[ \t]*).*$/$1$value/mi ) {
                 $text .= "\n   * $key: $value\n";
             }
         }
-        $topicObject->text($text);
+
+        if ( $text ne $original ) {
+            $topicObject->text($text);
+            $changed = 1;
+        }
+    }
+
+    # Saving unconditionally adds a revision to the user topic on every
+    # login, even when not a single field moved.
+    if ( !$changed ) {
+        Foswiki::Func::writeDebug(
+            "    setUserFields: nothing changed, not saving") if $debug;
+        return;
     }
 
     $topicObject->save();

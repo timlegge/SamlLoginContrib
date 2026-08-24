@@ -73,9 +73,17 @@ $Foswiki::cfg{Saml}{WikiNameAttributes} = 'fname,lname';
 $Foswiki::cfg{Saml}{EmailAttributes} = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress';
 
 # **PERL LABEL="Assertion Attribute Mapping"**
-# Hash of map of Assertion Attributes to Foswiki UserForm Values.
-# The default is an example you will need to adjust the values of the hash to the names
-# used in the assertion attributes
+# Hash mapping Foswiki UserForm field names to the Assertion Attribute names
+# they are filled from.  The keys must match the fields of your UserForm, the
+# values must match the attribute names the IdP actually sends - check them in
+# the login debug output before assuming.
+# The default is an example and matches {WikiNameAttributes} and
+# {EmailAttributes} above; adjust all three together.
+# An IdP using the SAML2 URI attribute name format sends the standard LDAP
+# names instead: urn:oid:2.5.4.42 (givenName), urn:oid:2.5.4.4 (sn),
+# urn:oid:1.2.840.113549.1.9.1 (mail), urn:oid:2.5.4.10 (organizationName),
+# urn:oid:2.5.4.12 (title) and urn:oid:2.5.4.20 (telephoneNumber).
+# Leaving this unset or empty leaves every user topic form field empty.
 $Foswiki::cfg{Saml}{AttributeMap} = {
     FirstName        => 'fname',
     LastName         => 'lname',
@@ -172,5 +180,27 @@ $Foswiki::cfg{Saml}{acs_url_post} = '/bin/login?saml=acs';
 # Specifies a URL for the Identity Provider to use as an Artifact URL
 # Used only if you are generating metadata.xml automatically
 $Foswiki::cfg{Saml}{acs_url_artifact} = '';
+
+# **BOOLEAN LABEL="Store Assertion Attributes"**
+# Keep the attributes of each assertion in a small database under the working
+# directory, so that they can be read back later by the %SAML{...}% and
+# %SAMLUSERS{...}% macros and handed to Solr, without having to be written into
+# the user's topic.
+# This is the only way the attributes of the *first* login can be shown: the
+# user topic is created by NewUserPlugin on the request after the assertion has
+# been consumed, which is too late for the login manager to fill it in.
+# Requires the SamlLoginPlugin to be enabled for anything to read the store.
+$Foswiki::cfg{Saml}{AttributeStore} = 1;
+
+# **PATH LABEL="Assertion Attribute Store" EXPERT**
+# Where to keep the attribute database. Leave empty to use
+# {WorkingDir}/work_areas/SamlLoginContrib/attributes.db
+$Foswiki::cfg{Saml}{AttributeStoreFile} = '';
+
+# **STRING LABEL="Person Data Form" EXPERT**
+# The form a topic must have before the Solr indexer will attach the stored
+# assertion attributes to it. Matched as a regular expression against the
+# topic's form name.
+$Foswiki::cfg{Saml}{PersonDataForm} = 'UserForm';
 
 1;
