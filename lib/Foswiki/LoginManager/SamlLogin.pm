@@ -28,13 +28,11 @@ TemplateLogin manager.
 
 use strict;
 use warnings;
-use Net::SAML2 0.78;
-use Net::SAML2::XML::Sig;
+use Net::SAML2 0.89;
 use URN::OASIS::SAML2 qw(:bindings :urn);
 use MIME::Base64 qw/ decode_base64 /;
 use Foswiki;
 use Foswiki::LoginManager::TemplateLogin ();
-use Data::Dumper;
 
 @Foswiki::LoginManager::SamlLogin::ISA = qw( Foswiki::LoginManager::TemplateLogin );
 
@@ -218,7 +216,7 @@ sub buildWikiName {
     }
 
     # Forbidden wikinames get mapped to WikiGuest too
-    my @forbidden = split(/\s+,\s+/, $Foswiki::cfg{Saml}{ForbiddenWikinames});
+    my @forbidden = split(/\s*,\s*/, $Foswiki::cfg{Saml}{ForbiddenWikinames} // '');
     for my $bignono (@forbidden) {
         if ($wikiname eq $bignono) {
             return $Foswiki::cfg{DefaultUserWikiName};
@@ -475,7 +473,7 @@ sub samlLogoutResponse
             url                             => $idp->slo_url(
                                                 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
             key                             => $this->{Saml}{sp_signing_key},
-            cert                            => $idp->{certs}{'signing'},
+            cert                            => $idp->cert('signing'),
             param                           => 'SAMLResponse',
             sls_force_lcase_url_encoding    => $this->{Saml}{sls_force_lcase_url_encoding},
             sls_double_encoded_response     => $this->{Saml}{sls_double_encoded_response}
@@ -519,12 +517,13 @@ sub samlLogoutResponse
             cacert => $this->{Saml}{cacert},
         );
 
-        my $xml = $post->handle_response(
-            $saml_response,
-        );
+        my $xml = eval{ $post->handle_response($saml_response) };
+        # Capture $@ immediately - anything called below may run its own
+        # eval and reset it before we get to report the failure.
+        my $err = $@;
 
         Foswiki::Func::writeDebug(
-            "        saml_response = " . $xml) if $this->{Saml}{ debug };
+            "        saml_response = " . $xml) if defined $xml && $this->{Saml}{ debug };
 
         Foswiki::Func::writeDebug(
             "        RelayState = $relaystate") if $this->{Saml}{ debug };
@@ -539,14 +538,24 @@ sub samlLogoutResponse
                 "        Logout Response was properly signed: $xml") if $this->{Saml}{ debug };
         }
         else {
+            $err ||= 'unknown verification failure';
+            my $topic       = $session->{topicName};
+            my $web         = $session->{webName};
+
             # Logout Response was not properly signed
             Foswiki::Func::writeDebug(
-                "        Logout Response was not properly signed: $xml") if $this->{Saml}{ debug };
+                "        Logout Response was not properly signed: $err");
+            throw Foswiki::OopsException( 'samllogincontrib',
+                status => 500, web => $web, topic => $topic,
+                params => [ 'login', 'Logout Response verrification failed', $err, '' ] );
             return $origurl;
         }
     }
 
-    if ($saml_logoutrequest_id ne $logout->{response_to}) {
+    my $in_response_to = $logout->in_response_to;
+
+    if (!defined $saml_logoutrequest_id || !defined $in_response_to
+        || $saml_logoutrequest_id ne $in_response_to) {
         my $topic       = $session->{topicName};
         my $web         = $session->{webName};
 
@@ -556,7 +565,7 @@ sub samlLogoutResponse
                             topic => $topic,
                             params => [ 'logout', 'InResponseTo Mismatch',
                                         "Request id: $saml_logoutrequest_id",
-                                        "InResponseTo $logout->{response_to}",] );
+                                        "InResponseTo $in_response_to",] );
 
         $session->redirect( $origurl, 1 );
         return $origurl;
@@ -582,9 +591,9 @@ sub samlLogoutResponse
             Foswiki::Func::writeDebug(
                 "        Original LogoutRequest id - $saml_logoutrequest_id") if $this->{Saml}{ debug };
             Foswiki::Func::writeDebug(
-                "        Logout InResponseTo - $logout->{response_to}") if $this->{Saml}{ debug };
+                "        Logout InResponseTo - " . $logout->in_response_to) if $this->{Saml}{ debug };
             Foswiki::Func::writeDebug(
-                "        Logout Success Status - $logout->{issuer}") if $this->{Saml}{ debug };
+                "        Logout Success Status - " . $logout->issuer) if $this->{Saml}{ debug };
         }
     }
     else {
@@ -595,8 +604,8 @@ sub samlLogoutResponse
                     web => $web,
                     topic => $topic,
                     params => [ 'logout', 'Logout Failure',
-                                "Status: $logout->{status}",
-                                "Additional Info: $logout->{substatus}",] );
+                                "Status: " . $logout->status,
+                                "Additional Info: " . ($logout->substatus // ''),] );
 
         Foswiki::Func::writeDebug(
             "        Logout Failed Status") if $this->{Saml}{ debug };
@@ -655,26 +664,47 @@ sub samlCallback {
 
         # Send the SAMLResponse to the Binding for the POST
         # The return has the CA certificate Subject and verified if correct
-        my $xml = $post->handle_response(
-                $saml_response
-        );
+        my $xml = eval { $post->handle_response($saml_response) };
+        # Capture $@ immediately - anything called below may run its own
+        # eval and reset it before we get to report the failure.
+        my $err = $@;
+
+        if (!defined $xml) {
+            $err ||= 'unknown verification failure';
+            Foswiki::Func::writeDebug("    SAMLResponse verification failed: $err");
+            throw Foswiki::OopsException( 'samllogincontrib',
+                status => 500, web => $web, topic => $topic,
+                params => [ 'login', 'Response verification failed', $err, '' ] );
+        }
 
         Foswiki::Func::writeDebug(
             "        SAMLResponse handle_response $xml") if $this->{Saml}{ debug };
+
         if ($xml) {
             Foswiki::Func::writeDebug(
             "        SAMLResponse handled successfully by POST") if $this->{Saml}{ debug };
 
-            my $assertion = Net::SAML2::Protocol::Assertion->new_from_xml(
+            my $assertion = eval { Net::SAML2::Protocol::Assertion->new_from_xml(
                 xml         => $xml,
                 key_file    => $this->{Saml}{sp_signing_key},
                 cacert      => $this->{Saml}{cacert},
-            );
+            ) };
+            my $assertion_err = $@;
+
+            if (!$assertion) {
+                $assertion_err ||= 'unknown assertion failure';
+
+                Foswiki::Func::writeDebug(
+                    "    SAMLResponse Assertion verification failed: $assertion_err");
+                throw Foswiki::OopsException( 'samllogincontrib',
+                    status => 500, web => $web, topic => $topic,
+                    params => [ 'login', 'Response Assertion verification failed', $assertion_err, '' ] );
+            }
 
             if ( $this->{Saml}{ debug } ){
                 Foswiki::Func::writeDebug("        Assertion extracted from SAMLResponse XML");
-                Foswiki::Func::writeDebug("            InResponseTo: $assertion->{ in_response_to }");
-                Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
+                Foswiki::Func::writeDebug("            InResponseTo: " . $assertion->in_response_to);
+                Foswiki::Func::writeDebug("            SessionIndex: " . $assertion->session);
             }
 =pod
             Verify that the response was related to the request
@@ -694,15 +724,15 @@ sub samlCallback {
                             topic => $topic,
                             params => [ 'login', 'InResponseTo Mismatch',
                                         "Request id: $saml_request_id",
-                                        "InResponseTo $assertion->{in_response_to}",] );
+                                        "InResponseTo " . $assertion->in_response_to,] );
 
                 # Always print this in debug as the chances of this occuring is rare
                 Foswiki::Func::writeDebug("        SAML assertion is invalid");
                 Foswiki::Func::writeDebug("            Issuer:       $issuer");
                 Foswiki::Func::writeDebug("            InResponseTo: $saml_request_id");
-                Foswiki::Func::writeDebug("            SessionIndex: $assertion->{ session }");
-                Foswiki::Func::writeDebug("            NotBefore:    $assertion->{ not_before }");
-                Foswiki::Func::writeDebug("            NotAfter:     $assertion->{ not_after }");
+                Foswiki::Func::writeDebug("            SessionIndex: " . $assertion->session);
+                Foswiki::Func::writeDebug("            NotBefore:    " . $assertion->not_before);
+                Foswiki::Func::writeDebug("            NotAfter:     " . $assertion->not_after);
 
                 $query->method($origmethod);
                 Foswiki::Func::writeDebug("            Redirect: $origurl") if $this->{Saml}{ debug };
@@ -723,8 +753,8 @@ sub samlCallback {
                     }
                 }
 
-                Foswiki::Func::writeDebug("            Assertion NameID $assertion->{nameid}")
-                    if defined $assertion->{nameid} && $this->{Saml}{ debug };
+                Foswiki::Func::writeDebug("            Assertion NameID " . $assertion->nameid)
+                    if defined $assertion->nameid && $this->{Saml}{ debug };
 
                 my $cuid = $this->mapUser($session, $assertion->attributes, $assertion->nameid);
 
@@ -734,13 +764,13 @@ sub samlCallback {
                 my $wikiname = $session->{users}->getWikiName($cuid);
                 my $loginName = $session->{users}->getLoginName($cuid);
 
-                my $sessionindex = $this->getAndClearSessionValue('saml_session_index');
-                Foswiki::Func::setSessionValue('saml_session_index', $assertion->{ session });
-
                 Foswiki::Func::writeDebug("    Login Name: $loginName") if $this->{Saml}{ debug };
 
                 $this->userLoggedIn($loginName);
                 #    $session->inContext('authenticated');
+
+                Foswiki::Func::setSessionValue('saml_session_index', $assertion->session);
+
                 $session->logger->log({
                     level    => 'info',
                     action   => 'login',
@@ -778,7 +808,8 @@ sub samlCallback {
                 )
                 {
                     Foswiki::Func::writeDebug("    UserTopic Exists update form for: $Foswiki::cfg{UsersWebName}.$wikiname") if $this->{Saml}{ debug };
-                    $session->{'users'}->setEmails($cuid, $assertion->attributes->{'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'}[0]);
+                    my $email = $this->extractEmail($assertion->attributes);
+                    $session->{'users'}->setEmails($cuid, $email) if $email ne '';
                     $this->setUserFields($cuid, $assertion->attributes);
                 } else {
                     Foswiki::Func::writeDebug("    UserTopic does not exists for: $Foswiki::cfg{UsersWebName}.$wikiname") if $this->{Saml}{ debug };
@@ -961,7 +992,6 @@ sub _logoutUrl {
     Foswiki::Func::writeDebug("    Saml: logouturl logoutreq: ", $logoutreq) if $this->{Saml}{ debug };
     my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $this->{Saml}{ sp_signing_key },
-              cert => $this->{Saml}{ sp_signing_cert },
               destination   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
               param => 'SAMLRequest',
               url   => $idp->slo_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
@@ -1095,7 +1125,7 @@ sub login {
         );
 
         Foswiki::Func::writeDebug("    Net::SAML2::IdP created from url") if $this->{Saml}{ debug };
-        Foswiki::Func::writeDebug("        Entity ID: $idp->{ entityid }") if $this->{Saml}{ debug };
+        Foswiki::Func::writeDebug("        Entity ID: " . $idp->entityid) if $this->{Saml}{ debug };
 
         # Important not to return as XML here as we need to track the id for later verification
         my $authnreq = Net::SAML2::Protocol::AuthnRequest->new(
@@ -1116,7 +1146,6 @@ sub login {
         # FIXME Support HTTP-POST
         my $redirect = Net::SAML2::Binding::Redirect->new(
               key => $this->{Saml}{ sp_signing_key },
-              cert => $this->{Saml}{ sp_signing_cert },
               param => 'SAMLRequest',
               url => $idp->sso_url('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'),
         );
@@ -1146,11 +1175,9 @@ sub getMetadata {
     my $org_display_name    = $Foswiki::cfg{Saml}{org_display_name} || 'Foswiki Saml Application';
     my $org_contact         = $Foswiki::cfg{Saml}{org_contact} || $Foswiki::cfg{WebMasterEmail};
     my $error_url           = $Foswiki::cfg{Saml}{error_url};
-    my $slo_url_soap        = $Foswiki::cfg{Saml}{slo_url_soap} || '';
     my $slo_url_redirect    = $Foswiki::cfg{Saml}{slo_url_redirect};
     my $slo_url_post        = $Foswiki::cfg{Saml}{slo_url_post};
     my $acs_url_post        = $Foswiki::cfg{Saml}{acs_url_post};
-    my $acs_url_artifact    = $Foswiki::cfg{Saml}{acs_url_artifact};
     my $url                 = $Foswiki::cfg{Saml}{url} || $Foswiki::cfg{Saml}{DefaultUrlHost};
 
     my $sp = Net::SAML2::SP->new(
@@ -1167,24 +1194,14 @@ sub getMetadata {
         {
             Binding     => BINDING_HTTP_POST,
             Location    => $url . $slo_url_post,
-        },
-        {
-            Binding     => BINDING_HTTP_ARTIFACT,
-            Location    => $url . $slo_url_soap,
         }],
         assertion_consumer_service => [
         {
             Binding     => BINDING_HTTP_POST,
             Location    => $url . $acs_url_post,
-            isDefault   => 'false',
+            isDefault   => 'true',
             # optionally
             index       => 1,
-        },
-        {
-            Binding     => BINDING_HTTP_ARTIFACT,
-            Location    => $url . $acs_url_artifact,
-            isDefault   => 'true',
-            index       => 2,
         }],
         error_url => $error_url,
 
@@ -1195,6 +1212,40 @@ sub getMetadata {
     );
 
     return $sp->metadata;
+}
+
+=begin TML
+
+---++ StaticMethod _escapeAttribute($value) => $string
+
+Neutralise an IdP supplied attribute value before it is written into a user
+topic.  Attribute values come from the IdP, and in many directories the user
+is able to edit their own - display name, job title, phone - so they must not
+be able to introduce Foswiki markup or HTML into the topic they land in.
+
+=Foswiki::entityEncode= is the core encoder behind =%ENCODE{type="entities"}%=.
+It covers the TML specials - percent, vertical bar, square brackets, underscore,
+star, equals, dollar, at - along with the HTML specials and the non printable
+control characters.  It leaves newlines alone by default, so they are added
+through its =$extra= argument the same way =%ENCODE{type="html"}%= does;
+otherwise a value could break out of the bullet list or the META line it is
+written to.
+
+Note that the store's own =dataEncode= is not enough here.  It escapes the
+=META:FIELD= line so it parses correctly, but =_readKeyValues= reverses that
+on read, so the value reaches the renderer raw.
+
+An undefined value - the attribute was not in the assertion - becomes the
+empty string.
+
+=cut
+
+sub _escapeAttribute {
+    my $value = shift;
+
+    return '' unless defined $value;
+
+    return Foswiki::entityEncode( $value, "\n\r" );
 }
 
 =begin TML
@@ -1224,7 +1275,7 @@ sub setUserFields {
                 'FIELD',
                 {
                     name       => $key,
-                    value      => $attributes->{${$field_map}{$key}}[0],
+                    value      => _escapeAttribute($attributes->{${$field_map}{$key}}[0]),
                     title      => $key,
                     attributes => 'h'
                 }
@@ -1234,10 +1285,14 @@ sub setUserFields {
     else {
         # otherwise use the topic text
         my $text = $topicObject->text() || '';
-        unless ( $text =~ s/^(\s+\*\s+First Name:\s*).*$/$1$attributes->{fname}/mi ) {
-            foreach my $key (keys %$field_map) {
-                if ($key =~ /Email/) { next;}
-                $text .= "\n   * $key: $attributes->{${$field_map}{$key}}[0]\n";
+
+        foreach my $key (keys %$field_map) {
+            if ($key =~ /Email/) { next;}
+
+            my $value = _escapeAttribute($attributes->{${$field_map}{$key}}[0]);
+
+            unless ( $text =~ s/^([ \t]*\*[ \t]+\Q$key\E:[ \t]*).*$/$1$value/mi ) {
+                $text .= "\n   * $key: $value\n";
             }
         }
         $topicObject->text($text);
